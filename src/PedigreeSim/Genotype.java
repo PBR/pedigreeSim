@@ -17,7 +17,6 @@ import java.util.TreeSet;
  */
 public class Genotype {
 
-    static HaploStruct[][] nullHaploStruct = null;
     protected PopulationData popdata;
     /**
      * haplostruct has two indices:
@@ -95,6 +94,10 @@ public class Genotype {
 
     public HaploStruct getHaploStruct(int chromnr, int homolog) {
         return haplostruct[chromnr][homolog];
+    }
+    
+    public void clearAllHaplostruct() {
+        haplostruct = null;
     }
 
     public PopulationData getPopdata() {

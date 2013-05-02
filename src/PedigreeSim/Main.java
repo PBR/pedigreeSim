@@ -939,12 +939,19 @@ public class Main {
         BufferedReader hsa = new BufferedReader(new FileReader(new File(fName+".hsa")));
         // hsb has the sequences of recombination positions:
         BufferedReader hsb = new BufferedReader(new FileReader(new File(fName+".hsb")));
+        //first we make sure that all current haplotypes of individuals are removed
+        //to allow a check for individuals occurring multiple times in the haplofiles
+        //(Note that founders already get haplotypes in their constructor)
+        for (Individual ind: popdata.getIndividual()) {
+            ind.clearAllHaplostruct();
+        }
         String s;
         int line = 0;
         String iName = "";
         HaploStruct[][] hs = null;
         do {
-            s=hsa.readLine().trim();
+            s=hsa.readLine();
+            if (s!=null) s = s.trim();
             if (s==null || s.equals("")) break;
             String[] words = Tools.readWords(s);
             if (words.length<4) {
@@ -1030,7 +1037,7 @@ public class Main {
                 }
                 r++;
             }
-            System.out.println("line="+line+"haplostruct:"+hast);
+            //System.out.println("line="+line+"haplostruct:"+hast);
             hs[chrnum][homol] = hast;
             line++;
             if (line % (popdata.chromCount()*popdata.ploidy) == 0) {

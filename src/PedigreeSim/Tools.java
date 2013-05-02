@@ -62,6 +62,25 @@ public class Tools {
         }
         return result;
     }
+    
+    /**
+     * seq(from,to):
+     * @param from integer, start of sequence (inclusive)
+     * @param to integer, end of sequence (inclusive)
+     * @return array with all integers from from to to, of length at least 1,
+     * increasing or decreasing depending on to being larger or smaller than 
+     * from
+     */
+    public static int[] seq(int from, int to) {
+        int n = Math.abs(to-from)+1;
+        int[] result = new int[n];
+        int step = to<from ? -1 : 1;
+        int m = from - step;
+        for (int i=0; i<n; i++) {
+            result[i] = m += step;
+        }
+        return result;
+    }
 
     public static String printIntArray(int[] array) {
         if (array==null || array.length==0) {
@@ -154,7 +173,7 @@ public class Tools {
      * @return corresponding recombination fraction in a parallel quadrivalent
      */
     public static double recombBivalentToRecombParallelQuadrivalent(double bivalRec) {
-        return 0.75*(1-Math.pow((1-2*bivalRec),(2.0/3.0)));
+        return 0.75*(1-Math.pow((1-2*bivalRec),2.0/3.0));
     }
     
     /**
@@ -165,7 +184,7 @@ public class Tools {
      * @return the recombination fraction
      */
     public static double svedparallelToRecomb(double morgan) {
-        double m = morgan*2; 
+        double m = morgan/4; //in a parallel quadrivalent there are 4 chiasmata per morgan
         return 0.75*(1-Math.exp(-2*m/3));
     }
     
@@ -176,7 +195,7 @@ public class Tools {
      */
     public static double recombToSvedparallel(double recomb) {
         double m = -1.5*(Math.log(1-4*recomb/3));
-        return m/2;
+        return m/4; //in a parallel quadrivalent there are 4 chiasmata per morgan
     }
 
     /**
@@ -204,53 +223,10 @@ public class Tools {
      * @return the recombination fraction
      */
     public static double svedcrosstypeToRecomb(double morgan) {
-        double m = morgan*2; //in a cross-type quadrivalent there are 2 chiasmata per morgan in each arm
-        return 0.75 - 0.25*Math.exp(-m) - (1-Math.exp(-m))/(2*m);
+        double m = morgan/2; //in a cross-type quadrivalent there are 4 chiasmata per morgan in each arm
+        return 0.75 - 0.25*Math.exp(-m) - 0.5/m*(1-Math.exp(-m));
     }
     
-    public static void recombtable() {
-        //check / produce table of recombination vs cM distance for various models
-        double cm, hald,kosa,svedcross,cross1,cross2,svedparal,paral1,paral2,
-                cmHald,cmKosa,cmSvedcross,cmSvedparal;
-        System.out.println("cM\thald\tkosa\tsvedcross\tcross1\tcross2\tsvedparal\tparal1\tparal2\tcmHald\tcmKosa\tcmSvedparal");
-        cm = 0;
-        while (cm<=500) {
-            hald=Tools.haldaneToRecomb(cm/100);
-            kosa=Tools.kosambiToRecomb(cm/100);
-            svedcross=Tools.svedcrosstypeToRecomb(cm/100);
-            cross1=Tools.recombBivalentToRecombCrossQuadrivalent(hald);
-            cross2=Tools.recombBivalentToRecombCrossQuadrivalent(kosa);
-            svedparal=Tools.svedparallelToRecomb(cm/100);
-            paral1=Tools.recombBivalentToRecombParallelQuadrivalent(hald);
-            paral2=Tools.recombBivalentToRecombParallelQuadrivalent(kosa);
-            cmHald=Tools.recombToHaldane(hald);
-            cmKosa=Tools.recombToKosambi(kosa);
-            //cmSvedcross=Tools.recombToSvedcross(svedcross); not implemented yet
-            cmSvedparal=Tools.recombToSvedparallel(svedparal);
-            System.out.println(cm+"\t"+hald+"\t"+kosa+"\t"+svedcross+"\t"+cross1+"\t"+cross2+"\t"+svedparal+"\t"+paral1+"\t"+paral2
-                    +"\t"+cmHald+"\t"+cmKosa+"\t"+cmSvedparal);
-            cm+=1.0;
-        }
-        double bigdist[] = {600,800,1000,2000,5000};
-        for (int i=0; i<bigdist.length; i++) {
-            cm = bigdist[i];
-            hald=Tools.haldaneToRecomb(cm/100);
-            kosa=Tools.kosambiToRecomb(cm/100);
-            svedcross=Tools.svedcrosstypeToRecomb(cm/100);
-            cross1=Tools.recombBivalentToRecombCrossQuadrivalent(hald);
-            cross2=Tools.recombBivalentToRecombCrossQuadrivalent(kosa);
-            svedparal=Tools.svedparallelToRecomb(cm/100);
-            paral1=Tools.recombBivalentToRecombParallelQuadrivalent(hald);
-            paral2=Tools.recombBivalentToRecombParallelQuadrivalent(kosa);
-            cmHald=Tools.recombToHaldane(hald);
-            cmKosa=Tools.recombToKosambi(kosa);
-            //cmSvedcross=Tools.recombToSvedcross(svedcross); not implemented yet
-            cmSvedparal=Tools.recombToSvedparallel(svedparal);
-            System.out.println(cm+"\t"+hald+"\t"+kosa+"\t"+svedcross+"\t"+cross1+"\t"+cross2+"\t"+svedparal+"\t"+paral1+"\t"+paral2
-                    +"\t"+cmHald+"\t"+cmKosa+"\t"+cmSvedparal);
-        }
-    }
-
     /**
      * ranExp gets a random number from the standard exponential distribution
      * @return

@@ -355,32 +355,33 @@ public class Quadrivalent extends Multivalent {
         } while (!(popdata.allowNoChiasmata || allChromChiasmata(slots)));
         
         if (popdata.testMode) {
-            ((TetraploidChromosome) chrom).crossQuadrivalentCount++;
-            ((TetraploidChromosome) chrom).quadChiasmaSum += chiasmaCount;
-            ((TetraploidChromosome) chrom).quadChiasmaSS += chiasmaCount*chiasmaCount;
+            TetraploidChromosome tchrom = (TetraploidChromosome) chrom;
+            tchrom.crossQuadrivalentCount++;
+            tchrom.quadChiasmaSum += chiasmaCount;
+            tchrom.quadChiasmaSS += chiasmaCount*chiasmaCount;
             //statistics on midpoint and length of exchange interval:
             if (chiasmaCount==0 ||
                 (exchangeLim[0]==chrom.getStartPos() && 
                  exchangeLim[1]==chrom.getEndPos())) {
-                ((TetraploidChromosome) chrom).noExchangeLimCount++;
+                tchrom.noExchangeLimCount++;
             } else if (exchangeLim[0]==chrom.getStartPos() || 
                        exchangeLim[1]==chrom.getEndPos()) {
-                ((TetraploidChromosome) chrom).oneExchangeLimCount++;
+                tchrom.oneExchangeLimCount++;
             }
             else {
-                ((TetraploidChromosome) chrom).twoExchangeLimCount++;
+                tchrom.twoExchangeLimCount++;
                 double x = (exchangeLim[0]+exchangeLim[1]) / 2.0; //midpoint of exchange interval
-                ((TetraploidChromosome) chrom).exchangeMidSum += x;
-                ((TetraploidChromosome) chrom).exchangeMidSS += x*x;
+                tchrom.exchangeMidSum += x;
+                tchrom.exchangeMidSS += x*x;
                 int i = (int)(Math.floor((x-chrom.getStartPos())*TetraploidChromosome.freqTableLength 
                         / chrom.getLength()));
-                ((TetraploidChromosome) chrom).exchangeMidFreq[i]++;
+                tchrom.exchangeMidFreq[i]++;
                 x = exchangeLim[1]-exchangeLim[0]; //length of exchange interval
-                ((TetraploidChromosome) chrom).exchangeLengthSum += x;
-                ((TetraploidChromosome) chrom).exchangeLengthSS += x*x;
+                tchrom.exchangeLengthSum += x;
+                tchrom.exchangeLengthSS += x*x;
                 i = (int)(Math.floor((x-chrom.getStartPos())*TetraploidChromosome.freqTableLength 
                         / chrom.getLength()));
-                ((TetraploidChromosome) chrom).exchangeLengthFreq[i]++;
+                tchrom.exchangeLengthFreq[i]++;
             }    
         }
         return slots;

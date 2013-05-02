@@ -124,11 +124,13 @@ public class Genotype {
 
     /**
      * @param c the chromosome number
+     * @param founder if true, homozygosity for founder alleles will be
+     * checked, else homozygosity for actual (observed) alleles.
      * @return a boolean[] with as  index the locus number on the chromosome.
      * The values are true if homozygous (same locus allele on all homologous
      * chromosomes) and false if heterozygous.
      */
-    public boolean[] homozygous(int c) {
+    public boolean[] homozygous(int c, boolean founder) {
         boolean[] result;
         Chromosome chrom = popdata.getChrom(c);
         if (chrom==null || chrom.getLocus()==null ||
@@ -139,17 +141,24 @@ public class Genotype {
             result = new boolean[chrom.getLocus().size()];
             Locus locus;
             double locPos;
+            int firstFounder;
+            String first = null;
             for (int loc=0; loc<result.length; loc++) {
                 try {
                     locus = chrom.getLocus().get(loc);
                     locPos = locus.getPosition();
-                    String first = locus.getAlleleName(
-                            haplostruct[c][0].getFounderAt(locPos));
+                    firstFounder = haplostruct[c][0].getFounderAt(locPos);
+                    if (!founder) first = locus.getAlleleName(firstFounder);
                     result[loc] = true;
                     int h = 1;
                     while (result[loc] && h<haplostruct[c].length) {
-                        result[loc] = first.equals(locus.getAlleleName(
-                            haplostruct[c][h].getFounderAt(locPos)));
+                        if (founder) {
+                            result[loc] = firstFounder == 
+                                haplostruct[c][h].getFounderAt(locPos);
+                        } else {
+                            result[loc] = first.equals(locus.getAlleleName(
+                                haplostruct[c][h].getFounderAt(locPos)));
+                        }    
                         h++;
                     }
                 }  catch (Exception ex) {/* cannot occur */ }

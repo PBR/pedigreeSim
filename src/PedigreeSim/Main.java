@@ -25,17 +25,11 @@
 
 package PedigreeSim;
 
-import JSci.maths.statistics.TDistribution; //download from http://www.java2s.com/Code/Jar/j/Downloadjscicore11jar.htm
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import JSci.maths.statistics.TDistribution;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -1129,7 +1123,8 @@ public class Main {
     public static boolean isValidPloidy(String s) {
         try {
             int p = Integer.parseInt(s);
-            return p==2 || p==4;
+            //return p==2 || p==4;
+            return p>0 && p%2==0;
         } catch (Exception ex) { return false; }
     }
 
@@ -1218,7 +1213,6 @@ public class Main {
         }
     } //simulateHaploStructs
 
-
     public static void testMeiosis(PopulationData popdata, String fName, double gammaFactor) {
         boolean printPubTables = false; //works only with a specific set of chromosomes and maps,
             //therefore not a user-selectable parameter. 
@@ -1243,7 +1237,7 @@ public class Main {
             if (gamploidy==1) {
                 locGenotypeNames = new String[] {"(0)","(1)"};
             }
-            else { //gamploidy==2
+            else if (gamploidy == 2) {
                 locGenotypeNames = new String[] { "(0,0)","(0,1)","(0,2)","(0,3)",
                     "(1,1)","(1,2)","(1,3)",  "(2,2)","(2,3)", "(3,3)"};
                 locGenotype = new int[][] {
@@ -1253,6 +1247,12 @@ public class Main {
                     {3,6,8,9} 
                 };
             }
+            else {
+                //for higher ploidy too many locus genotypes, don't count
+                //but to avoid compiler error:
+                locGenotypeNames = null;
+            }    
+            
             out.println("chromosome\tlength\tstart\tend\tcentromere\tprefPairing\tfracQuadrivalents");
             for (Chromosome chr : popdata.getChromosome()) {
                 out.print(chr.getChromName()+"\t"+(chr.getLength()*100)+"\t"+
@@ -1260,7 +1260,7 @@ public class Main {
                 int mrkCount = chr.getLocus().size();
                 chr.founderAlleleCountAll = new int[popdata.ploidy][mrkCount];
                 chr.founderAlleleCountSel = new int[popdata.ploidy][mrkCount];
-                chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
+                if (gamploidy <= 2) chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
                 chr.recombCountAll = new int[mrkCount][mrkCount];
                 chr.recombCountSel = new int[mrkCount][mrkCount];
                 //chr.recombCountCum = new int[mrkCount][mrkCount];
@@ -1272,7 +1272,7 @@ public class Main {
                 chr.mapdistSqCum = new double[mrkCount][mrkCount];
                 chr.recombPoints = new int[(int)(chr.getLength()*4)];
                 chr.founderCount = new int[popdata.ploidy];
-                if (popdata.ploidy==4) {
+                if (popdata.ploidy > 2) {
                     TetraploidChromosome chr4 = (TetraploidChromosome)chr;
                     out.print("\t"+chr4.getPrefPairingProb()+"\t"+chr4.getFracQuadrivalents());
                     chr4.founderHomAll = new int[mrkCount];
@@ -1293,6 +1293,8 @@ public class Main {
                     chr4.exchangeLengthSS = 0.0;
                     chr4.quadChiasmaSum = 0;
                     chr4.quadChiasmaSS = 0;
+                    for (int q=0; q<chr4.quadrivalentConfigCount.length; q++)
+                        chr4.quadrivalentConfigCount[q] = 0;
                 }
                 out.println();
             }
@@ -1312,7 +1314,7 @@ public class Main {
                             chr.recombCountSel[loc][loc2]=0;
                         }
                     }
-                    if (popdata.ploidy==4) {
+                    if (popdata.ploidy > 2) { 
                         for (int loc=0; loc<mrkCount; loc++) {
                             ((TetraploidChromosome)chr).founderHomAll[loc]=0;
                             ((TetraploidChromosome)chr).founderHomSel[loc]=0;
@@ -1354,18 +1356,20 @@ public class Main {
                                     if (gamploidy==1) {
                                         chr.locGenotypeCount[founderAll0][loc]++; 
                                     }
-                                    else { //gamploidy==2
+                                    else if (gamploidy==2) {
                                         HaploStruct hs1 = gam.get(g).getHaploStruct(c, 1);
                                         int founderAll1 = hs1.getFounderAt(locuspos);
                                         chr.locGenotypeCount[locGenotype[founderAll0][founderAll1]][loc]++;
-                                    }            
+                                    }  
+                                    //with higher ploidy there are too many locus genotypes, don't count
+                                    //TODO does this still work?
                                 }
                             }
 
                             //count occurrence of founder alleles and recombinants:
                             for (int p=0; p<gamploidy; p++) {
                                 HaploStruct hs = gam.get(g).getHaploStruct(c, p);
-                                if (selgam==g) {
+                                if (g==selgam) {
                                     chr.founderCount[hs.founderCount()-1] ++;
                                     int i = hs.segmentCount()-1;
                                     if (i>=chr.recombPoints.length) {
@@ -1397,8 +1401,8 @@ public class Main {
                             } //for p
 
                             //count occurrences of homozygosity:
-                            if (popdata.ploidy==4) {
-                                boolean[] homoz = gam.get(g).homozygous(c);
+                            if (gamploidy >= 2) {
+                                boolean[] homoz = gam.get(g).homozygous(c,true);
                                 for (int loc=0; loc<locCount; loc++) {
                                     ((TetraploidChromosome)(chr)).founderHomAll[loc]
                                             += homoz[loc] ? 1 : 0;
@@ -1459,7 +1463,7 @@ public class Main {
                             chr.printMapHorizontal(out, false);
                         }
                         
-                        if (popdata.ploidy==4) {
+                        if (popdata.ploidy > 2) {
                             total = 4 * popdata.testMeioseCount;
                             out.println();
                             out.println("Homozygosity frequencies for founder alleles:");
@@ -1594,97 +1598,103 @@ public class Main {
                 }
                 out.println("count & mean\t"+count+"\t"+(((double)sum)/count));
                 
-                out.println();
-                out.println("Frequency distribution of locus genotypes");
-                chr.printMapHorizontal(out, true);
-                for (int i=0; i<locGenotypeNames.length; i++) {
-                    out.print(locGenotypeNames[i]);
-                    for (int loc=0; loc<chr.getLocus().size(); loc++) {
-                        out.print("\t"+chr.locGenotypeCount[i][loc]);
-                    }
+                if (gamploidy <= 2) {
+                    //else too many locus genotypes, not counted
                     out.println();
-                }
+                    out.println("Frequency distribution of locus genotypes");
+                    chr.printMapHorizontal(out, true);
+                    for (int i=0; i<locGenotypeNames.length; i++) {
+                        out.print(locGenotypeNames[i]);
+                        for (int loc=0; loc<chr.getLocus().size(); loc++) {
+                            out.print("\t"+chr.locGenotypeCount[i][loc]);
+                        }
+                        out.println();
+                    }
+                }    
 
                 int mainconfig = 0; //0: bivalents
                 int mainconfigCount = popdata.testIter*popdata.testMeioseCount; //for diploids
-                if (popdata.ploidy==4) {
+                if (popdata.ploidy > 2) {
+                    TetraploidChromosome chr4 = (TetraploidChromosome)chr;
                     out.println();
                     out.println("Homozygosity frequencies for founder alleles:");
-                    chr.printMapHorizontal(out, true);
+                    chr4.printMapHorizontal(out, true);
                     out.print("freq");
-                    for (int loc=0; loc<chr.getLocus().size(); loc++)
-                        out.print("\t"+(((TetraploidChromosome)(chr)).founderHomFrCum[loc])
+                    for (int loc=0; loc<chr4.getLocus().size(); loc++)
+                        out.print("\t"+(chr4.founderHomFrCum[loc])
                                 / popdata.testIter);
                     out.println();
                     out.print("stdev");
-                    for (int loc=0; loc<chr.getLocus().size(); loc++)
+                    for (int loc=0; loc<chr4.getLocus().size(); loc++)
                         out.print("\t"+Tools.sampleStDev(
-                                ((TetraploidChromosome)(chr)).founderHomFrCum[loc], 
-                                ((TetraploidChromosome)(chr)).founderHomFrSqCum[loc], 
+                                chr4.founderHomFrCum[loc], 
+                                chr4.founderHomFrSqCum[loc], 
                                 popdata.testIter));
                     out.println();
 
                     out.println();
-                    out.println("Total number of two-bivalent configs\t" +
-                            ((TetraploidChromosome)(chr)).bivalentCount/2);
+                    out.println("Total number of bivalents\t" +
+                            chr4.bivalentCount);
                     out.println("Total number of parallel quadrivalents\t" +
-                            ((TetraploidChromosome)(chr)).paralQuadrivalentCount);
+                            chr4.paralQuadrivalentCount);
                     out.println("Total number of cross-type quadrivalents\t" +
-                            ((TetraploidChromosome)(chr)).crossQuadrivalentCount);
-                    mainconfig = 0; //0: 2 bivalents
-                    mainconfigCount = ((TetraploidChromosome)(chr)).bivalentCount/2;
-                    if (((TetraploidChromosome)(chr)).paralQuadrivalentCount >
-                            mainconfigCount) {
-                        mainconfig = 1; //1: parallel quadrivalents
-                        mainconfigCount = ((TetraploidChromosome)(chr)).paralQuadrivalentCount;
+                            chr4.crossQuadrivalentCount);
+                    out.println("quadrivalents\tmeiosecount");
+                    for (int q=0; q<chr4.quadrivalentConfigCount.length; q++) {
+                        out.println(q+"\t"+chr4.quadrivalentConfigCount[q]);
                     }
-                    if (((TetraploidChromosome)(chr)).crossQuadrivalentCount >
-                            mainconfigCount) {
+                    mainconfig = 0; //0: 2 bivalents
+                    mainconfigCount = chr4.bivalentCount/2;
+                    if (chr4.paralQuadrivalentCount > mainconfigCount) {
+                        mainconfig = 1; //1: parallel quadrivalents
+                        mainconfigCount = chr4.paralQuadrivalentCount;
+                    }
+                    if (chr4.crossQuadrivalentCount > mainconfigCount) {
                         mainconfig = 2; //2: cross-type quadrivalents
-                        mainconfigCount = ((TetraploidChromosome)(chr)).crossQuadrivalentCount;
+                        mainconfigCount = chr4.crossQuadrivalentCount;
                     } 
                     out.println("Data on the chromosome exchange interval of cross-type quadrivalents:");
                     out.println("Number of cross-type quadrivalents where the chromosome exchange interval is:");
                     out.println("not defined (no chiasmata):\t"+
-                            ((TetraploidChromosome)(chr)).noExchangeLimCount);
+                            chr4.noExchangeLimCount);
                     out.println("defined on one side only:\t" +
-                            ((TetraploidChromosome)(chr)).oneExchangeLimCount);
+                            chr4.oneExchangeLimCount);
                     out.println("defined on both sides:\t" +
-                            ((TetraploidChromosome)(chr)).twoExchangeLimCount);
+                            chr4.twoExchangeLimCount);
                     out.println("Distribution of midpoints of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
                     out.println("interval (M)\t\t\tfrequency");
-                    for (int i=0; i<((TetraploidChromosome)(chr)).exchangeMidFreq.length; i++) {
-                        out.println((chr.getStartPos()+i*(chr.getLength()/TetraploidChromosome.freqTableLength)) +
+                    for (int i=0; i<chr4.exchangeMidFreq.length; i++) {
+                        out.println((chr4.getStartPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t<=X<\t" +
-                                (chr.getStartPos()+(i+1)*(chr.getLength()/TetraploidChromosome.freqTableLength)) +
-                                "\t" + (((double)(((TetraploidChromosome)(chr)).exchangeMidFreq[i]))/
-                                 ((TetraploidChromosome)(chr)).twoExchangeLimCount));
+                                (chr4.getStartPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                                "\t" + (((double)chr4.exchangeMidFreq[i])/
+                                 chr4.twoExchangeLimCount));
                     }
-                    double mean =  ((TetraploidChromosome)(chr)).exchangeMidSum /
-                            ((TetraploidChromosome)(chr)).twoExchangeLimCount;
+                    double mean =  chr4.exchangeMidSum /
+                            chr4.twoExchangeLimCount;
                     out.println("mean\t" + mean);
                     out.println("st.dev.\t" + Tools.sampleStDev(
-                            ((TetraploidChromosome)(chr)).exchangeMidSum,
-                            ((TetraploidChromosome)(chr)).exchangeMidSS,
-                            ((TetraploidChromosome)(chr)).twoExchangeLimCount));
+                            chr4.exchangeMidSum,
+                            chr4.exchangeMidSS,
+                            chr4.twoExchangeLimCount));
                     out.println("Distribution of lengths of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
                     out.println("interval\t\t\tfrequency");
                     //Note: with popdata.quadriMethod==2 and no chiasma interference the length is always 0: 
                     //the last failed chiasma extends the exchangeLim to the opposing chiasma or chromosome end
-                    for (int i=0; i<((TetraploidChromosome)(chr)).exchangeLengthFreq.length; i++) {
-                        out.println((chr.getStartPos()+i*(chr.getLength()/TetraploidChromosome.freqTableLength)) +
+                    for (int i=0; i<chr4.exchangeLengthFreq.length; i++) {
+                        out.println((chr4.getStartPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t<=X<\t" +
-                                (chr.getStartPos()+(i+1)*(chr.getLength()/TetraploidChromosome.freqTableLength)) +
-                                "\t" + (((double)(((TetraploidChromosome)(chr)).exchangeLengthFreq[i]))/
-                                 ((TetraploidChromosome)(chr)).twoExchangeLimCount));
+                                (chr4.getStartPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                                "\t" + (((double)(chr4.exchangeLengthFreq[i]))/
+                                 chr4.twoExchangeLimCount));
                     }
-                    mean =  ((TetraploidChromosome)(chr)).exchangeLengthSum /
-                            ((TetraploidChromosome)(chr)).twoExchangeLimCount;
+                    mean =  chr4.exchangeLengthSum /
+                            chr4.twoExchangeLimCount;
                     out.println("mean\t" + mean);
                     out.println("st.dev.\t" + Tools.sampleStDev(
-                            ((TetraploidChromosome)(chr)).exchangeLengthSum,
-                            ((TetraploidChromosome)(chr)).exchangeLengthSS,
-                            ((TetraploidChromosome)(chr)).twoExchangeLimCount));
+                            chr4.exchangeLengthSum,
+                            chr4.exchangeLengthSS,
+                            chr4.twoExchangeLimCount));
                 } //if ploidy==4
 
                 out.println();
@@ -1959,7 +1969,7 @@ public class Main {
 
             out.flush();
         } catch (Exception ex) {
-            System.out.println(ex.getMessage());
+            System.out.println("testMeiosis exception: "+ex.getMessage());
         }
     } //testMeiosis
 

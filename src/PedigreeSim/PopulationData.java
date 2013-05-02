@@ -175,8 +175,9 @@ public class PopulationData {
             boolean bivalentsBidirectional,
             long randomSeed, String missing)
             throws Exception {
-        if (ploidy!=2 && ploidy!=4) {
-            throw new Exception("Error in PopulationData: ploidy must be 2 or 4");
+        if //(ploidy!=2 && ploidy!=4) {
+           (ploidy <= 0 || ploidy % 2 != 0) {     
+            throw new Exception("Error in PopulationData: ploidy must be even");
         }
         this.ploidy = ploidy;
         this.chiasmaInterference = chiasmaInterference;

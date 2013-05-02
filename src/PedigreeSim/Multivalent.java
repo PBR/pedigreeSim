@@ -137,10 +137,10 @@ abstract public class Multivalent {
      */
     protected HaploStruct[] doCrossingOver() throws Exception {
         //update counts (only used in test runs):
-        if (popdata.ploidy==4) {
+        if (popdata.ploidy > 2) {
             if (haplostruct.length==2) ((TetraploidChromosome)chrom).bivalentCount++;
             else ((TetraploidChromosome)chrom).paralQuadrivalentCount++;
-        }
+        } 
         
         if (popdata.bivalentsBidirectional) {
             return doBidirectionalCrossingOver();
@@ -366,6 +366,8 @@ abstract public class Multivalent {
      * Note: As the chromosomes are NOT randomized in the Bi- and Quadrivalent 
      * constructors, the random assignment of centromeres to the two poles
      * of the first meiotic division must be done here. 
+     * TODO 15-4-13: is that still true? Randomization not in constructor
+     * but in Individual.calcChromConfig?
      * The order of the chromosomes in each gamete doesn't really matter
      * but to make it as random as possible the order of the chromosomes
      * in each gamete is randomized.
@@ -437,7 +439,8 @@ abstract public class Multivalent {
      *      one half of the centromeres (1 in a bivalent, 2 in a quadrivalent)
      *      going to each pole;
      *    - the second meiotic division splits each centromere in two halves
-     *      and assigns each half at random to one of the two gametes.
+     *      and assigns each half at random to one of the two gametes at that 
+     *      pole.
      *    - the total of 4 (bivalent) or 8 (quadrivalent) haplotypes in the
      *      gametes array are ordered in the order of the gametes, i.e.
      *      * for a bivalent (4 haplotypes) nr 0, 1, 2 and 3 each go a different 
@@ -448,6 +451,8 @@ abstract public class Multivalent {
      *        are from one pole and the last two gametes from the other pole.
      *    - the sorting of the patterns haplotypes array therefore takes place
      *      based of the allele in founder array at the centromere position.
+     *      TODO 15-4-13 is that correct? except in a founder several homologs
+     *      may have the same founder allele at the centromere ???
      * (2) while the patterns describe how the recombinants are composed of
      *     sections of the original 2 (bivalent) or 4 (quadrivalent) chromosomes
      *     in the multivalent, the gametes must be specified in terms of the
@@ -476,9 +481,6 @@ abstract public class Multivalent {
                 int t = s+1;
                 while (patterns[t].getFounderAtCentromere() != centro[s]) {
                     t++;
-                    /*if (t>=patterns.length) {
-                        System.out.println("t="+t);
-                    }*/
                 }
                 tmphs = patterns[s];
                 patterns[s] = patterns[t];

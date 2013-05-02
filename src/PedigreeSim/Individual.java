@@ -5,6 +5,7 @@
 
 package PedigreeSim;
 
+import JSci.maths.statistics.BinomialDistribution;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -75,11 +76,49 @@ public class Individual extends Genotype {
      *   for a Quadrivalent: the sequence in the cross-type Quadrivalent
      */
     static class ChromConfig {
-        boolean quad;
+        int quad; //the number of quadrivalents (was boolean)
         int[] chromseq;
     }
-
-
+    
+    /* The next 3 data structures are created and calculated by calcGenomehs().
+     * They will contain information on the genome numbers (see below) at the
+     * two ends (heads and tails) of the haplostructs. They will be created
+     * the first time they are needed (when doMeiosis is called).
+     * These data structures will only contain valid information
+     * if ploidy>2 and only for chromosomes whose prefPairingProb > 0.0.
+     */
+    
+    /**
+     * There are in principle ploidy/2 different diploid genomes
+     * in a polyploid, and a founder allele fa belongs to genome fa % (ploidy/2).
+     * genomenr[chrom][side][h] will contain the genome number corresponding
+     * to the founderallele at side 0 or 1 (head or tail) of haplostruct[h]
+     * of chromosome chrom.
+     */
+    int[][][] genomenr; 
+    
+    /**
+     * genomehs will contain (only for polyploids, and only for chromosomes
+     * where prefPairingProb>0), for each "genome number" (see above), which 
+     * haplostruct ends have this number. 
+     * genomehs has four index levels, where
+     * genomehs.get(chrom).get(side).get(genomenr) returns an ArrayList<Integer>
+     * that contains the indices to all haplostructs of chromosome chrom
+     * that at side 0 or 1 (head or tail) have a founderallele belonging to
+     * that genomenr.
+     */
+    ArrayList<ArrayList<ArrayList<ArrayList<Integer>>>> genomehs;
+    
+    /**
+     * possiblePairCount will contain the maximum number of preferential
+     * pairs at both sides of each chromosome. A preferential pair
+     * is a pair where both members have the same genome number (see above).
+     * If each genomenr occurs exactly twice, or generally if no genome
+     * occurs an odd number of times, there are ploidy/2 preferential pairs 
+     * possible, else less preferential pairs are possible.
+     */
+    int[][] possiblePairCount; //
+    
 
     /**
      * Constructor to create a founder: its [chromCount][ploidy] HaploStructs
@@ -111,7 +150,7 @@ public class Individual extends Genotype {
                     }
                 }
             }
-            calcPrefPairing();
+            //calcPrefPairing();
         }
         this.parents = new Individual[] {null, null};
     }
@@ -151,7 +190,7 @@ public class Individual extends Genotype {
         }
         this.indivName = name;
         setHaploStruct(haplostruct);
-        calcPrefPairing();
+        //calcPrefPairing();
         this.parents = new Individual[] {null,null};
     }
 
@@ -174,10 +213,10 @@ public class Individual extends Genotype {
         //is used to generate gametes
     }
 
-    protected void setHaploStruct(HaploStruct[][] haplostruct) throws Exception {
+    protected final void setHaploStruct(HaploStruct[][] haplostruct) throws Exception {
         if (checkHaploStruct(popdata.ploidy, haplostruct)) {
             this.haplostruct = haplostruct;
-            calcPrefPairing();
+            //calcPrefPairing();
         } else {
             throw new Exception("Individual setHaploStruct: invalid haplostruct");
         }
@@ -211,6 +250,10 @@ public class Individual extends Genotype {
         this.parents = parents;
     }
 
+    /**
+     * 
+     * @return true if this individual has no parents, else false
+     */
     public boolean isFounder() {
         return parents[0]==null;
     }
@@ -251,321 +294,14 @@ public class Individual extends Genotype {
     }
 
     /**
-     * preferential pairing occurs between the telomeres (start and end of
-     * chromosome) that both have an odd or both an even founder allele,
-     * and only if there are two odd and two even telomeres in the tetraploid
-     * individual
-     */
-    protected void calcPrefPairing() {
-        prefPairingConfig = new int[popdata.chromCount()];
-        prefPairing = new int[popdata.chromCount()][2];
-        for (int chr =0; chr<popdata.chromCount(); chr++) {
-            prefPairingConfig[chr] = -1;
-            prefPairing[chr] = new int[] {-1,-1};
-        }
-        if (popdata.ploidy==4) {
-            for (int chr=0; chr<popdata.chromCount(); chr++) {
-                boolean[][] isOdd = new boolean[4][2]; //preferential pairing between odd and between even founder alleles
-                for (int i=0; i<4; i++) {
-                    //start, end odd?
-                    isOdd[i][0] = haplostruct[chr][i].getFounderAtStart() % 2 == 1;
-                    isOdd[i][1] = haplostruct[chr][i].getFounderAtEnd() % 2 == 1;
-                }
-                for (int side=0; side<2; side++) {
-                    //prefPairs[chr][side] = null;
-                    int i=1;
-                    while (i<4 && isOdd[i][side] != isOdd[0][side]) {
-                        i++;
-                    }
-                    if (i<4) {
-                        //else no pairing for haplostruct 0
-                        //now 0 and i are the first pair
-                        int j= i==1 ? 2 : 1;
-                        if (isOdd[j][side] != isOdd[0][side]) {//else at leat three odd or even
-                            int k = (i==2 || j==2) ? 3 : 2;
-                            if (isOdd[k][side] == isOdd[j][side]) { //else no two different pairs
-                                //0 and i are the first pair, j and k the second;
-                                //the pairs and the homologues within the pairs
-                                //are ordered, there are only 3 possibilities:
-                                //{0,1,2,3}, {0,2,1,3}, {0,3,1,2}
-                                prefPairing[chr][side] = i-1; //chrom 0/i vs chrom j/k
-
-                            }
-                        }
-                    }
-                } //for side
-                //determine prefPairingConfig for chr:
-                if (prefPairing[chr][0]==-1) {
-                    if (prefPairing[chr][1]==-1) prefPairingConfig[chr] = -1;
-                    else prefPairingConfig[chr] = 1; //only at side 1
-                }
-                else {
-                    if (prefPairing[chr][1]==-1) prefPairingConfig[chr] = 0; //only at side 0
-                    else { //both ends have pref. pairs; matching or not?
-                        if (prefPairing[chr][0]==prefPairing[chr][1])
-                            prefPairingConfig[chr] = 2;
-                        else prefPairingConfig[chr] = 3;
-                    }
-                }
-            } //for chr
-        } //ploidy==4
-    } //calcPrefPairing
-
-    /**
-     * doNaturalPairing performs preferential or random pairing of both ends
-     * of chromosome chrom, and based on the result determines if they form
-     * two Bivalents or one Quadrivalent and
-     * how the Bivalents or Quadrivalent are constructed
-     * @param chrom
-     * @return a ChromConfig:
-     *   if two bivalents, the first two are the first Bivalent and the
-     *   second two the second Bivalent;
-     *   if one Quadrivalent, the order is such that the correct pairing
-     *   of starts and ends occurs where result[0] goes to Quadrivalent slots 0&1,
-     *   return[1] to slots2&3 etc
-     */
-    ChromConfig doNaturalPairing(int chrom) {
-        ChromConfig result = new ChromConfig();
-        int[] sidePairing = new int[2]; //any of the 3 possible pairings, as in prefPairing, except -1
-        for (int side=0; side<2; side++) {
-            if ((prefPairing[chrom][side]==-1) ||
-                (rand.nextDouble() >
-                ((TetraploidChromosome)(popdata.getChrom(chrom))).getPrefPairingProb())) {
-                //random pairing at this end
-                sidePairing[side] = rand.nextInt(3);
-            }
-            else {
-                //use pairing:
-                sidePairing[side] = prefPairing[chrom][side];
-            }
-            /*now we need to see if the pairs at both ends match or not;
-             *at both sides the pairing can be (ordered!)
-             * 01/23, 02/13, 03/12
-             * if the pairs at start and end are identical we have two bivalents
-             * else we have a quadrivalent as follows:
-             * start end   slot01 slot23 slot45 slot67
-             * 01/23 02/13   0       2     3       1
-             * 01/23 03/12   0       3     2       1
-             * 02/13 01/23   0       1     3       2
-             * 02/13 03/12   0       3     1       2
-             * 03/12 01/23   0       1     2       3
-             * 03/12 02/13   0       2     1       3
-             */
-        }
-        //do the pairings at the two ends match?
-        result.quad = sidePairing[0]!=sidePairing[1];
-        if (result.quad) {
-            //put chrom in order of slots
-            result.chromseq = twoEndOrdersToQuadrivalentOrder(sidePairing);
-        }
-        else { //two bivalents
-            /* the pairings at both ends match so we can use either to define
-             * the order; use the first = order[0]:
-             */
-            result.chromseq = randomizeBivalents(pairs[sidePairing[0]].clone());
-        }
-        return result;
-    } //doNaturalPairing
-
-    /**
-     * twoEndOrdersToQuadrivalentOrder
-     * This method takes the pairwise ordering of the chromosome homolog
-     * starts (order[0] and ends (order[1]) and from it derives the
-     * sequence of the chromosomes in a Quadrivalent.
-     * Both order[side] are ordered and have one of only three
-     * possible sequences: {0,1,2,3}, {0,2,1,3}, {0,3,1,2} (the sequence
-     * indicates the first and the second pairs of haplostructs at that side)
-     * if the pairs at start and end are identical we have two bivalents
-     * and that is not allowed here (see assertion)
-     * else we have a quadrivalent as follows:
-     * start end   slot01 slot23 slot45 slot67
-     * 01/23 02/13   0      2      3      1
-     * 01/23 03/12   0      3      2      1
-     * 02/13 01/23   0      1      3      2
-     * 02/13 03/12   0      3      1      2
-     * 03/12 01/23   0      1      2      3
-     * 03/12 02/13   0      2      1      3
-     * @param order the pairing at both sides of the chromosomes
-     * @return the order of the chromosomes in the Quadrivalent (randomized)
-     */
-    int[] twoEndOrdersToQuadrivalentOrder(int[] sidePairing) {
-        assert(sidePairing.length==2);
-        assert(sidePairing[0]!=sidePairing[1]); //else the two pairings match and two bivalents would result
-        //put chrom in order of slots
-        int[] seq = new int[4];
-        seq[0] = 0;
-        /*seq[1] = order[1][1];
-        seq[3] = order[0][1];
-        seq[2] = 6 - seq[1] - seq[3];*/
-        seq[1] = sidePairing[1]+1; //the chrom paired with chrom 0 at the end
-        seq[3] = sidePairing[0]+1; //the chrom paired with chrom 0 at the start
-        seq[2] = 6 - seq[1] - seq[3]; //the remaining chrom
-        /* now we still must randomize while keeping the paired ends together:
-         * we have abcd, the other possibilities with same pairing are:
-         * badc : horizontal flip
-         * dcba : vertical flip
-         * cdab : both flips = rotation 180 deg
-         * note that rotation over 90 degrees would exchange starts and ends
-         */
-        int[] result = new int[4];
-        switch (rand.nextInt(4)) {
-            case 0 : result = seq; break;
-            case 1 : result = new int[] {seq[1],seq[0],seq[3],seq[2]}; break;
-            case 2 : result = new int[] {seq[3],seq[2],seq[1],seq[0]}; break;
-            default : result = new int[] {seq[2],seq[3],seq[0],seq[1]};
-        }
-        return result;
-    } //twoEndOrdersToQuadrivalentOrder
-
-    /**
-     * makeBivalents produces two Bivalents based on preferential or
-     * random pairing of chromosome chrom
-     * @param chrom
-     * @return
-     */
-    int[] makeBivalents(int chrom) {
-        int[] result;
-        if (prefPairingConfig[chrom]==-1 || //no pairs at either end
-            prefPairingConfig[chrom]==3 ||  //non-matching pairs at the two ends
-            (rand.nextDouble() >
-                ((TetraploidChromosome)(popdata.getChrom(chrom))).getPrefPairingProb())) {
-            //no preferential pairing:
-            result = pairs[rand.nextInt(3)].clone();
-        }
-        else {
-            //preferential pairing:
-            if (prefPairingConfig[chrom] >= 1) {
-                //pairing based on chromosome end
-                result = pairs[prefPairing[chrom][1]].clone();
-            }
-            else {
-                //pairing based on chromosome start
-                result = pairs[prefPairing[chrom][0]].clone();
-            }
-        }
-        //now randomizing between and within pairs is still needed
-        //as in doNaturalPairing:
-        return randomizeBivalents(result);
-    } //makeBivalents
-    
-    int[] randomizeBivalents(int[] pairing) {
-        /*
-         * pairing has the pairing of the four chromosomes
-         * into two Bivalents, after applying preferential or
-         * non-preferential pairing.
-         * now we must still randomize while keeping the pairing intact:
-         * the first and second pair can be switched, and within each pair
-         * the chromosomes may be switched:
-         */
-        int tmp;
-        if (rand.nextBoolean()) { //switch the two pairs:
-            tmp=pairing[0]; pairing[0]=pairing[2]; pairing[2]=tmp;
-            tmp=pairing[1]; pairing[1]=pairing[3]; pairing[3]=tmp;
-        }
-        if (rand.nextBoolean()) { //switch within first pair
-            tmp=pairing[0]; pairing[0]=pairing[1]; pairing[1]=tmp;
-        }
-        if (rand.nextBoolean()) { //switch within second pair
-            tmp=pairing[2]; pairing[2]=pairing[3]; pairing[3]=tmp;
-        }
-        return pairing;
-    } //randomizeBivalents
-
-    /**
-     * makeQuadrivalent produces one Quadrivalent based on preferential or
-     * random pairing of chromosome chrom
-     * @param chrom
-     * @return
-     */
-    int[] makeQuadrivalent(int chrom) {
-        /* if there are no pairs at either end, first at the start random
-         * pairing is applied and then at the end such that the pairing at the
-         * end is different from the start
-         * if there is pairing at only one end, preferential pairing
-         * is applied there first and at the other end a random pairing different
-         * from the first pairing
-         * if there are matching pairs at both ends, first preferential
-         * pairing is done at both ends. If this results in two matching
-         * pairings there are three possibilities:
-         * - at no one end the actual pairing matches the pairs; then one end
-         * is selected randomly and there preferential pairing is applied
-         * until non-matching pairing is achieved
-         * - at one end the actual pairing matches the pairs; then at the
-         * other end random pairing different from the first pairing
-         * is done
-         * - at both ends the actual pairing matches the pairs; then at one
-         * end (randomly selected) random pairing different from the first
-         * pairing is done
-         *
-         */
-        //int[][] order = new int[2][];
-        int[] sidePairing = new int[2];
-        int y;
-        int side;
-        switch (prefPairingConfig[chrom]) {
-            case -1: { //no pref. pairing possible at either end
-                sidePairing[0] = rand.nextInt(3); //any of the 3 possible pairings, as in prefPairing, except -1
-                y = rand.nextInt(2); //any of 2 pairings left over :
-                sidePairing[1] = (sidePairing[0]+y+1) % 3;
-                break;
-            }
-            case 0:
-            case 1:
-            case 2:  { //only pref.pairing possible at one end
-                side = prefPairingConfig[chrom];
-                if (side==2) side = rand.nextInt(2); //the two side pairings are conflicting, select one
-                if (rand.nextDouble() >
-                    ((TetraploidChromosome)(popdata.getChrom(chrom))).getPrefPairingProb()) {
-                    //random pairing at this end
-                    sidePairing[side] = rand.nextInt(3);
-                }
-                else {
-                    //use pref. pairing:
-                    sidePairing[side] = prefPairing[chrom][side];
-                }
-                //for the other end use random pairing:
-                y = rand.nextInt(2); //any of 2 pairings left over :
-                sidePairing[1-side] = (sidePairing[side]+y+1) % 3;
-                break;
-            }
-            case 3 : { //pref.pairing possible at both ends, not conflicting
-                for (side=0; side<2; side++) {
-                    if (rand.nextDouble() >
-                        ((TetraploidChromosome)(popdata.getChrom(chrom))).getPrefPairingProb()) {
-                        //random pairing at this end
-                        sidePairing[side] = rand.nextInt(3);
-                    }
-                    else {
-                        //use pref. pairing:
-                        sidePairing[side] = prefPairing[chrom][side];
-                    }
-                }
-                //do the actual pairings at the two ends match?
-                if (sidePairing[0]==sidePairing[1]) {
-                    //we pick one of the sides and do a random pairing there
-                    side = rand.nextInt(2); //side 0 or 1
-                    y = rand.nextInt(2); ////any of 2 pairings left over :
-                    sidePairing[side] = (sidePairing[1-side]+y+1) % 3;
-                }
-                break;
-            }
-            default:
-                assert (false) : prefPairingConfig[chrom] ;
-        } //switch (prefPairingConfig[chrom])
-        int[] result = twoEndOrdersToQuadrivalentOrder(sidePairing);
-        return result;
-    } //makeQuadrivalent
-
-
-    /**
      * doMeiosis produces four gametes.
      * If ploidy==2, each gamete contains one HaploStruct per chromosome;
-     * if ploidy==4, each gamete contains two HaploStruct per chromosome
+     * if ploidy==4, each gamete contains two HaploStruct per chromosome, etc.
      * @return an ArrayList of size 4: 4 Gametes.
      *   each element is a HaploStruct[][], with
      *   first index is chromosome number, and
      *   second index is number of HaploStruct (0 for haploid gamete,
-     *   0 and 1 for diploid gamete)
+     *   0 and 1 for diploid gamete, etc.)
      *   The gametes are ordered as a tetrad, with the first two deriving
      *   from the "top" side of the first meiotic division and the last two
      *   from the "bottom" side. For each chromosome the decision which
@@ -576,87 +312,66 @@ public class Individual extends Genotype {
      * @throws Exception
      */
     public ArrayList<Gamete> doMeiosis() throws Exception {
-        HaploStruct[][] hs = new HaploStruct[popdata.chromCount()][];
         ArrayList<Gamete> gametes = new ArrayList<Gamete>();
-        HaploStruct[] origChrom;
-            //will contain the chromosomes to go into the Bivalent(s) or Quadrivalent
-        if (popdata.ploidy==2) {
-            origChrom = new HaploStruct[2];
-            for (int c=0; c<popdata.chromCount(); c++) {
-                //randomize order of the two haplostruct for the Bivalent:
-                int first = rand.nextInt(2);
-                origChrom[0] = haplostruct[c][first];
-                origChrom[1] = haplostruct[c][1-first];
-                //do the meiosis, returning 4 haplostruct (1 per gamete):
-                hs[c] = new Bivalent(origChrom).doMeiosis();
-            }
-            for (int g=0; g<4; g++) {
-                gametes.add(new Gamete(hs, new int[]{g}, popdata));
-                   //each gamete gets one of the four HaploStruct[] per c(hromosome)
-            }
-        } else {
-            assert (popdata.ploidy==4);
-            ChromConfig chromconfig;
-            for (int c=0; c<popdata.chromCount(); c++) {
-                TetraploidChromosome chr = (TetraploidChromosome) popdata.getChrom(c);
-                if (popdata.naturalPairing) {
-                    chromconfig = doNaturalPairing(c);
-                }
-                else {
-                    chromconfig = new ChromConfig();
-                    // no natural pairing; decide between Quadrivalent or two Bivalents
-                    chromconfig.quad = chr.getFracQuadrivalents()==0.0 ? false :
-                            chr.getFracQuadrivalents()==1.0 ? true :
-                            rand.nextDouble()<chr.getFracQuadrivalents();
-                    if (chromconfig.quad) {
-                        chromconfig.chromseq = makeQuadrivalent(c);
-                    }
-                    else {
-                        chromconfig.chromseq = makeBivalents(c);
-                    }
-                }
-                if (chromconfig.quad) {
-                    origChrom = new HaploStruct[4];
-                    for (int i=0; i<4; i++) {
-                        origChrom[i] = haplostruct[c][chromconfig.chromseq[i]];
-                    }
-                    hs[c] = new Quadrivalent(origChrom).doMeiosis();
-                }
-                else {
-                    hs[c] = new HaploStruct[2*popdata.ploidy];
-                    //make two Bivalents
-                    HaploStruct[] chrgam; 
-                    for (int p=0; p<popdata.ploidy/2; p++) {
-                        chrgam = new Bivalent(
-                                haplostruct[c][chromconfig.chromseq[2*p]],
-                                haplostruct[c][chromconfig.chromseq[2*p+1]]
-                                ).doMeiosis();
-                        /* chrgam has the four haploid gametes for one of the
-                         * two bivalents for this chromosome.
-                         * Now place them into the hs array:
-                         */
-                        for (int g=0; g<4; g++) {
-                            hs[c][2*g+p] = chrgam[g];
-                        }
-                    } //for p
-                } //two Bivalents
-                //next we shuffle the two chromosomes per diploid gamete:
-                HaploStruct tmp;
+        HaploStruct[][] hs = new HaploStruct[popdata.chromCount()][2*popdata.ploidy];
+        //hs[c] will contain the 2n haplostructs to go into the 4 alleles
+        //in the correct sequence (first n/2 for gamete 0 etc)
+        HaploStruct[] origChrom; //copy of haplostruct[c] in order of chrconf.chromseq
+        HaploStruct[] qh; // = new HaploStruct[8]; //result of each quadrivalent
+        HaploStruct[] dh; // = new HaploStruct[4]; //result of each bivalent
+        int p2 = popdata.ploidy/2;
+        for (int c=0; c<popdata.chromCount(); c++) {
+            calcChromConfig(c);
+            //first do the quadrivalents:
+            origChrom = new HaploStruct[4];
+            for (int v=0; v<chrconf.quad; v++) {
+
+                for (int h=0; h<4; h++) {
+                    origChrom[h] = haplostruct[c][chrconf.chromseq[4*v+h]];
+                }    
+                qh = new Quadrivalent(origChrom).doMeiosis();
                 for (int g=0; g<4; g++) {
-                    if (rand.nextBoolean()) {
-                        tmp = hs[c][2*g];
-                        hs[c][2*g] = hs[c][2*g+1];
-                        hs[c][2*g+1] = tmp;
+                    hs[c][2*v+p2*g] = qh[2*g];
+                    hs[c][2*v+p2*g+1] = qh[2*g+1];
+                }
+            }
+            //then do the bivalents:
+            int firstbi = chrconf.quad*4;
+            if (firstbi < popdata.ploidy) {
+                origChrom = new HaploStruct[2];
+                for (int v=0; v<(popdata.ploidy-firstbi)/2; v++) {
+                    for (int h=0; h<2; h++) {
+                        origChrom[h] = haplostruct[c]
+                                [chrconf.chromseq[firstbi+2*v+h]];
+                    }
+                    dh = new Bivalent(origChrom).doMeiosis();
+                    for (int g=0; g<4; g++) {
+                        hs[c][firstbi/2+v+p2*g] = dh[g];
                     }
                 }
-            } //for c
-            //now we have the four gametes represented in hs as 8 HaploStructs per
-            //chromosome; these are now converted into Gametes:
+            } 
+            //randomize hs[c] within each gamete:
+            //System.out.println("randomize hs[c] within each gamete for chrom "+c);
+            HaploStruct[] shufhs = new HaploStruct[popdata.ploidy/2];
             for (int g=0; g<4; g++) {
-                gametes.add(new Gamete(hs, new int[]{2*g, 2*g+1}, popdata));
-                   //each gamete gets two of the eight HaploStruct[]
+                int[] shuf = tools.shuffleArray(Tools.seq(g*popdata.ploidy/2,
+                        ((g+1)*popdata.ploidy/2)-1));
+                //make a shuffled copy of the hs for this gamete in shufhs
+                for (int h=0; h<popdata.ploidy/2; h++) {
+                    shufhs[h] = hs[c][shuf[h]];
+                }
+                //copy the shuffled version back into hs:
+                System.arraycopy(shufhs, 0, hs[c], g*popdata.ploidy/2, popdata.ploidy/2);
             }
-        } //ploidy==4
+        } //for c
+        //finally put hs into gametes:
+        //now we have the four gametes represented in hs as 4*(ploidy/2) HaploStructs
+        //per chromosome; these are now converted into Gametes:
+        for (int g=0; g<4; g++) {
+            gametes.add(new Gamete(hs, Tools.seq(g*popdata.ploidy/2,
+                    (g+1)*popdata.ploidy/2-1), popdata));
+               //each gamete gets ploidy/2 HaploStruct[]
+        }
         //for debugging: print the four gametes and chiasma positions
         if (false) {
             int[]recCount = new int[popdata.chromCount()];
@@ -692,8 +407,477 @@ public class Individual extends Genotype {
                 }
                 System.out.println();
             } 
-        }
+        }//debug output
         return gametes;
-    } //doMeiosis
+    } //doMeiosis    
+    
+    /**
+     * calcGenomehs makes a 4-dim ArrayList of Integers, with for each chromosome
+     * and both sides an array of all ploidy/2 different genome numbers, and
+     * for each genome number all the haplostructs
+     */
+    private void calcGenomehs() {
+        genomenr = new int[popdata.chromCount()][][];
+        genomehs = new ArrayList<ArrayList<ArrayList<ArrayList<Integer>>>>(); //for each genome nr:
+            //which haplostructs in initorder have this genome nr (for both sides) 
+        possiblePairCount = new int[popdata.chromCount()][];
+        for (int chr=0; chr<popdata.chromCount(); chr++) {
+            genomehs.add(new ArrayList<ArrayList<ArrayList<Integer>>>());
+            //TetraploidChromosome chrom = (TetraploidChromosome)popdata.getChrom(chr);
+            //if (chrom.getPrefPairingProb() > 0.0) {
+            genomenr[chr] = new int[2][popdata.ploidy];
+            possiblePairCount[chr] = new int[] {0,0}; //the number of possible preferential pairs
+                //(for both sides)
+            for (int side=0; side<2; side++) {
+                genomehs.get(chr).add( new ArrayList<ArrayList<Integer>>());
+                for (int g=0; g<popdata.ploidy/2; g++) {
+                    genomehs.get(chr).get(side).add(new ArrayList<Integer>());
+                }
+                for (int h=0; h<popdata.ploidy; h++) {
+                    //first get the genome number at the haplostruct side:
+                    genomenr[chr][side][h] = (side==0 ?
+                            haplostruct[chr][h].getFounderAtStart() :
+                            haplostruct[chr][h].getFounderAtEnd())
+                            % (popdata.ploidy/2);
+                    //and list all the haplostruct sides in genomehs:
+                    genomehs.get(chr).get(side).get(genomenr[chr][side][h]).add(h);
+                }
+                //count the number of possible prefpairs at this side:
+                for (int g=0; g<popdata.ploidy/2; g++) {
+                    possiblePairCount[chr][side] += 
+                            genomehs.get(chr).get(side).get(g).size()/2;
+                }
+            } //for side 
+        } //for chr    
+    } //calcGenomehs
+
+    /**
+     * getPairing returns an int array describing which haplostruct pairs
+     * with which other haplostruct at the side (0 or 1, head or tail) of
+     * chromosone chr. Pairing is done taking the value of prefPairingProb
+     * and the actual configuration of genome numbers into account.
+     * @param chr the chromosome number
+     * @param side 0 or 1, head or tail
+     * @param initorder a randomized order of the haplostructs
+     * @return int array of length popdata.ploidy. pairedWith[[i]==j means that 
+     * haplostruct[initorder[i]] pairs with haplostruct[initorder[j]]
+     */
+    private int[] getPairing(int chr, int side) {
+        assert(popdata.ploidy > 2);
+        int[] pairedWithSide = new int[popdata.ploidy];
+        boolean done[] = new boolean[popdata.ploidy];
+        TetraploidChromosome tchrom = (TetraploidChromosome)popdata.getChrom(chr);
+        if (genomehs == null) calcGenomehs();
+        calcGenohs(chr,side);
+        int firsth = 0, secondh,  //first and second haplostruct in initorder forming a pair
+                gnm, //genome number at chrom [initorder[firsth]], side=side
+                hIndex; //index within genohs.get(gnm)
+        while (firsth < popdata.ploidy-1) {
+            while (firsth < popdata.ploidy-1 && done[firsth]) firsth++;
+            if (firsth < popdata.ploidy-1) {
+                done[firsth] = true;
+                gnm = genomenr[chr][side][initorder[firsth]];
+                hIndex = genohs.get(gnm).indexOf(initorder[firsth]);
+                genohs.get(gnm).remove(hIndex);
+                if ( !genohs.get(gnm).isEmpty() &&
+                        rand.nextDouble()<tchrom.getPrefPairingProb() ) {
+                    //preferential pairing, get a partner with same genome number:
+                    hIndex = rand.nextInt(genohs.get(gnm).size());
+                    secondh = backorder[genohs.get(gnm).get(hIndex)];
+                } else {
+                    //no preferential pairing: get any still available partner
+                    secondh = firsth;
+                    while (done[secondh]) {
+                        secondh = rand.nextInt(popdata.ploidy-firsth-1)+firsth+1;
+                    }
+                    gnm = genomenr[chr][side][initorder[secondh]];
+                    hIndex = genohs.get(gnm).indexOf(initorder[secondh]);
+                }
+                done[secondh] = true;
+                genohs.get(gnm).remove(hIndex);
+                pairedWithSide[firsth] = secondh;
+                pairedWithSide[secondh] = firsth;
+                firsth++;
+            }    
+        } //while firsth
+        //} //preferential pairing    
+        return pairedWithSide;
+    } //getPairing
+    
+    /**
+     * Pairing is done at head and tail ends of the chromosomes.
+     * The pairing at primaryside is always used; the pairing at
+     * secondaryside can be overruled if it is not needed or if it
+     * conflicts with the specified number of bivalents and quadrivalents.
+     * The side where more preferential pairs are possible gets a higher
+     * probability to be used as primaryside.
+     * Primaryside is determined again for each meiosis.
+     * @param chr the chromosome number
+     * @return 
+     */
+    private int getPrimarySide(int chr) {
+        double probside0 = possiblePairCount[chr][0] == possiblePairCount[chr][1] ? 
+                0.5 :
+                (double)(possiblePairCount[chr][0]) /
+                    (double)(possiblePairCount[chr][0]+possiblePairCount[chr][1]);
+        return rand.nextDouble() < probside0 ? 0 : 1;
+    } //getPrimarySide
+    
+    /* Further variables that need to be global as they are to be accessed 
+     * and changed by helper functions of calcChromConfig
+     */
+    
+    /** initorder is a private array of length ploidy. It represents a randomized
+     * permutation of the haplostructs of the current chromosome in the current meiosis.
+     * E.g. a particular Bivalent might be composed of the haplostructs
+     * initorder[firsth] and initorder[secondh].
+     */
+    private int[] initorder = new int[popdata.ploidy];
+    
+    /**
+     * backorder is the inverse of initorder: initorder[backorder[h]] == h.
+     */
+    private int[] backorder = new int[popdata.ploidy]; //compiler message incorrect	
+    
+    private int primaryside, secondaryside; //see getPrimarySide
+    private int[][] pairedWith = new int[2][]; //for each haplostruct in initorder:
+            //with which other haplostruct is it paired (for both sides)
+    private int bivalentcount, quadrivalentcount; //number realized so far
+    private ChromConfig chrconf = new ChromConfig(); //for the current chromosome
+    private boolean[] hsdone; //for each haplostruct in initorder: has it
+        //already been used in a Bivalent or Quadrivalent?
+    ArrayList<ArrayList<Integer>> genohs;
+    
+    /**
+     * calcGenohs makes a deep copy of one chromosome/side from genomehs
+     * and removes all haplostruct entries that have already been used.
+     * @param chr the chromosome number
+     */
+    private void calcGenohs(int chr, int side) {
+        genohs = new ArrayList<ArrayList<Integer>>();
+        for (int g=0; g<genomehs.get(chr).get(side).size(); g++) {
+            genohs.add(new ArrayList<Integer>());
+            for (int i=0; i<genomehs.get(chr).get(side).get(g).size(); i++) {
+                genohs.get(g).add(genomehs.get(chr).get(side).get(g).get(i));
+                //even though we are now referring to the same Integer object as in genomehs
+                //it won't matter if that object is later remover from genohs
+                //as it will still be present in genomehs
+            }
+        }
+        int gnm, hIndex;
+        for (int h=0; h<popdata.ploidy; h++) {
+            if (hsdone[h]) {
+                gnm = genomenr[chr][secondaryside][initorder[h]];
+                hIndex = genohs.get(gnm).indexOf(initorder[h]);
+                genohs.get(gnm).remove(hIndex);
+            }    
+        }
+    } //calcGenohs
+    
+    /**
+     * calcChromConfig calculates for one of the (polyploid) chromosomes
+     * the ChromConfig
+     * @param c the chromosome number
+     * @return 
+     */
+    private void calcChromConfig(int c) {
+        chrconf = new ChromConfig();
+        chrconf.chromseq = new int[popdata.ploidy];
+        if (popdata.ploidy == 2) {
+            chrconf.chromseq = tools.shuffleArray(Tools.seq(2));
+            chrconf.quad = 0;
+        }
+        else {
+            assert (popdata.ploidy>2);
+            TetraploidChromosome chr = (TetraploidChromosome)popdata.getChrom(c);
+            initorder = tools.shuffleArray(Tools.seq(popdata.ploidy)); //global but only relevant during
+                //this method
+            for (int h=0; h<popdata.ploidy; h++) {
+                    backorder[initorder[h]] = h;
+            }
+            hsdone = new boolean[popdata.ploidy];
+            for (int side=0; side<2; side++) pairedWith[side] = getPairing(c,side); 
+            primaryside = getPrimarySide(c);
+            secondaryside = 1 - primaryside;
+            bivalentcount = 0;
+            quadrivalentcount = 0;
+
+            if (popdata.naturalPairing) {
+                //according to the prefpairing of this chromosome
+                //we assign first spontaneous Bivalents (i.e. same pairing
+                //at primary and secondary side),
+                getSpontaneousBivalents(popdata.ploidy/2);
+                //Next we search spontaneous Quadrivalents:
+                getSpontaneousQuadrivalents((popdata.ploidy-2*bivalentcount)/4);
+
+                //Now we have extracted all spontaneous Bivalents and Quadrivalents.
+                //For the remaining haplostruct we ignore the previous pairings at 
+                //secondaryside but make new ones ad hoc:
+                calcGenohs(c,secondaryside);
+                while (2*bivalentcount + 4*quadrivalentcount < popdata.ploidy) {
+                    if (2*bivalentcount + 4*quadrivalentcount == popdata.ploidy - 2) {
+                        getForcedBivalent();
+                    } else {
+                        //make a new Bivalent or Quadrivalent:
+                        getForcedBiOrQuadri(c, true);
+                    }    
+                } //while (2*bivalentcount + 4*quadrivalentcount < popdata.ploidy) 
+            } //if (popdata.naturalPairing)     
+
+            else {
+                //no naturalpairing but specified fraction Quadrivalents
+                int numQuadrivalents;
+                if (chr.getFracQuadrivalents()==0) numQuadrivalents = 0; else
+                if (chr.getFracQuadrivalents()==1) numQuadrivalents = popdata.ploidy/4; else {
+                    BinomialDistribution bindist = 
+                        new BinomialDistribution(popdata.ploidy/4,chr.getFracQuadrivalents());
+                    numQuadrivalents = (int)Math.round(bindist.inverse(rand.nextDouble()));
+                }    
+                //now we know the number of quadrivalents to form 
+                //with this chromosome in this meiosis
+                int numBivalents = (popdata.ploidy-4*numQuadrivalents)/2;
+                //we assign first the spontaneous Bivalents and Quadrivalents
+                //as far as needed,
+                //then add forced Bivalents: use the pairing at primaryside only
+                getSpontaneousBivalents(numBivalents);
+                getSpontaneousQuadrivalents(numQuadrivalents);
+                while (bivalentcount < numBivalents) {
+                    getForcedBivalent();
+                } 
+                if (quadrivalentcount < numQuadrivalents) {
+                    calcGenohs(c, secondaryside);
+                    while (quadrivalentcount < numQuadrivalents) {
+                        getForcedBiOrQuadri(c, false);
+                    }
+                }
+           } //no naturalpairing
+            chrconf.quad = quadrivalentcount;
+            chr.quadrivalentConfigCount[chrconf.quad]++;
+        } //ploidy==2 else
+    } //getChrConfig
+
+    private void addBivalent(int firsth, int secondh) {
+        //bivalents are at end of chrconf.chromseq
+        bivalentcount++;
+        chrconf.chromseq[popdata.ploidy-2*bivalentcount] = initorder[firsth];
+        chrconf.chromseq[popdata.ploidy-2*bivalentcount+1] = initorder[secondh];
+    } //addBivalent
+    
+    private void addQuadrivalent(int firsth, int secondh, int thirdh, int fourth) {
+        /* now the quadrivalent haplostruct are in the order:
+            * firsth-secondh-thirdh-fourth
+            * with firsth/fourth and secondh/thirdh
+            * each paired at primaryside, and
+            * firsth/secondh and thirdh/fourth
+            * each paired at secondaryside
+            * If primaryside==0 (heads) this is ok, but if primaryside==1 (tails)
+            * then the haplostruct must be cycled 1 position
+            * 
+            * Also, the quadrivalents are at the start of chrconf.chromseq
+            */
+        if (primaryside==0) {
+            chrconf.chromseq[(quadrivalentcount*4)] = initorder[firsth];
+            chrconf.chromseq[(quadrivalentcount*4)+1] = initorder[secondh];
+            chrconf.chromseq[(quadrivalentcount*4)+2] = initorder[thirdh];
+            chrconf.chromseq[(quadrivalentcount*4)+3] = initorder[fourth];
+        } else {
+            chrconf.chromseq[(quadrivalentcount*4)] = initorder[secondh];
+            chrconf.chromseq[(quadrivalentcount*4)+1] = initorder[thirdh];
+            chrconf.chromseq[(quadrivalentcount*4)+2] = initorder[fourth];
+            chrconf.chromseq[(quadrivalentcount*4)+3] = initorder[firsth];
+        }  
+        quadrivalentcount++;
+    } //addQuadrivalent
+    
+    private void getSpontaneousBivalents(int maxBivalents) {
+        int firsth = 0;
+        int secondh;
+        while (firsth < popdata.ploidy-1 && bivalentcount<maxBivalents) {
+            //search next spontaneous bivalent:
+            while ( firsth<popdata.ploidy-1 && 
+                    ( hsdone[firsth] ||
+                        pairedWith[primaryside][firsth] != pairedWith[secondaryside][firsth] ) ) {
+                firsth++;
+            }
+            if (firsth < popdata.ploidy-1) {
+                //available firsth and secondh found so bivalent possible
+                secondh = pairedWith[primaryside][firsth];
+                assert(!hsdone[secondh]);
+                addBivalent(firsth, secondh);
+                hsdone[firsth] = true;
+                hsdone[secondh] = true;
+            }
+            firsth++;
+        } //while firsth, get spontaneous bivalents
+    } //getSpontaneousBivalents 
+    
+    private void getSpontaneousQuadrivalents(int maxQuadrivalents) {
+        /* The procedure below assumes that there are no spointaneous bivalents
+         * left over. If there is no naturalpairing that may not be the case.
+         * Therefore we temporarily mark the spontaneous bivalents in hsdone,
+         * then obtain the quadrivalents, and finally put back the
+         * temporary bivalents
+         */
+        ArrayList<Integer> tmpBi = new ArrayList<Integer>();
+        int firsth = 0, secondh;
+        while (firsth<popdata.ploidy-1) {
+            while ( firsth<popdata.ploidy-1 && 
+                    ( hsdone[firsth] ||
+                        pairedWith[primaryside][firsth] != pairedWith[secondaryside][firsth] ) ) {
+                firsth++;
+            }
+            if (firsth < popdata.ploidy-1) {
+                //available firsth and secondh found so bivalent possible
+                secondh = pairedWith[primaryside][firsth];
+                assert(!hsdone[secondh]);
+                hsdone[firsth] = true;
+                hsdone[secondh] = true;
+                tmpBi.add(firsth);
+                tmpBi.add(secondh);
+            }
+            firsth++;
+        }
+        // Now we have marked the spontaneous bivalent members in hsdone
+        // and continue to find spontaneous quadrivalents:
+        firsth = 0;
+        int thirdh, fourth;
+        while (firsth < popdata.ploidy-3 && quadrivalentcount < maxQuadrivalents) {
+            //search next spontaneous Quadrivalent:
+            while ( firsth<popdata.ploidy-3 && hsdone[firsth]) firsth++;
+            if (firsth < popdata.ploidy-3) {
+                //free firsth found so quadrivalent possible
+                secondh = pairedWith[secondaryside][firsth];
+                assert(!hsdone[secondh]);
+                thirdh = pairedWith[primaryside][secondh];
+                fourth = pairedWith[primaryside][firsth];
+                assert(!hsdone[thirdh]);
+                assert(!hsdone[fourth]);
+                //These are the four partners in the new potential Quadrivalent.
+                //they cannot yet be part of an existing Bivalent or Quadrivalent,
+                //else hsdone[firsth] would be true
+                if (pairedWith[secondaryside][thirdh] == fourth) {
+                    //These 4 form a spontaneous Quadrivalent
+                    addQuadrivalent(firsth, secondh, thirdh, fourth);
+                    hsdone[firsth] = true;
+                    hsdone[secondh] = true;
+                    hsdone[thirdh] = true;
+                    hsdone[fourth] = true;
+                } //spontaneous Quadrivalent is ok
+            } //free firsth found so quadrivalent possible    
+            firsth++;
+        } //while firsth, get spontaneous quadrivalents  
+        // Finally we unmark the (extra) spontaneous bivalents in hsdone:
+        for (Integer i : tmpBi) {
+            assert(hsdone[i]);
+            hsdone[i] = false;
+        }
+    } //getSpontaneousQuadrivalents  
+
+    private void getForcedBivalent() {
+        int firsth = 0;
+        while (firsth<hsdone.length && hsdone[firsth]) firsth++;
+        assert firsth<hsdone.length : "getForcedBivalent";
+        int secondh = pairedWith[primaryside][firsth];
+        assert(!hsdone[secondh]);
+        //next available bivalent pair found
+        addBivalent(firsth, secondh);
+        hsdone[firsth] = true;
+        hsdone[secondh] = true;
+    } //getForcedBivalent
+    
+    /**
+     * getForcedBiOrQuadri is called if naturalpairing, after the spontaneous 
+     * Bivalents and Quadrivalents have been taken based on pairedWith at
+     * both primaryside and secondaryside.
+     * The approach is to use the pairedWith pairs at primaryside and to obtain
+     * a new, still available partner for firsth at secondaryside taking 
+     * the prefPairingProb into account.
+     * @param chr the chromosome number (needed because we have to access
+     * genomenr again)
+     * @param biAllowed if true either a Bivalent or a Quadrivalent is extracted,
+     * if false only a Quadrivalents can be extracted
+     */
+    private void getForcedBiOrQuadri(int chr, boolean biAllowed) {
+        int firsth = 0; 
+        int secondh, thirdh, fourth;
+        while ( firsth<popdata.ploidy-1 && hsdone[firsth]) firsth++;
+        fourth = pairedWith[primaryside][firsth];
+        assert(!hsdone[fourth]);
+        //we will do preferential pairing at secondary side, if possible, 
+        //only with firsth. Therefore if fourth has more options to pair 
+        //than firsth we need to switch firsth and fourth:
+        int gnm = genomenr[chr][secondaryside][initorder[firsth]];
+        int gnm4 = genomenr[chr][secondaryside][initorder[fourth]];
+        if (genohs.get(gnm4).size() > genohs.get(gnm).size()) 
+         {
+            int i=firsth; firsth=fourth; fourth=i;
+            i=gnm; gnm=gnm4; gnm4=i;
+        }
+        int hIndex = genohs.get(gnm).indexOf(initorder[firsth]);
+        genohs.get(gnm).remove(hIndex);
+        hsdone[firsth] = true;
+        int hIndex4 = genohs.get(gnm4).indexOf(initorder[fourth]);
+        TetraploidChromosome tchrom = (TetraploidChromosome)popdata.getChrom(chr);
+        if ( ( (biAllowed && genohs.get(gnm).size()>0) ||
+               (!biAllowed && genohs.get(gnm).size()>1) ) &&
+             rand.nextDouble() < tchrom.getPrefPairingProb() ) {
+            //preferential pairing:
+            do {
+                hIndex = rand.nextInt(genohs.get(gnm).size());
+                secondh = backorder[genohs.get(gnm).get(hIndex)];
+            } while (secondh==fourth && !biAllowed);
+            hsdone[fourth] = true;
+            genohs.get(gnm4).remove(hIndex4);
+            if (secondh == fourth) {
+                //new Bivalent created
+                addBivalent(firsth, secondh);
+            } //prefpairing, new bivalent
+            else {
+                //No Bivalent: make a Quadrivalent by ignoring the
+                //pairing between thirdh and fourth at secondaryside
+                assert(!hsdone[secondh]);
+                gnm = genomenr[chr][secondaryside][initorder[secondh]];
+                hIndex = genohs.get(gnm).indexOf(initorder[secondh]);
+                genohs.get(gnm).remove(hIndex);
+                thirdh = pairedWith[primaryside][secondh];
+                assert(!hsdone[thirdh]);
+                gnm = genomenr[chr][secondaryside][initorder[thirdh]];
+                hIndex = genohs.get(gnm).indexOf(initorder[thirdh]);
+                genohs.get(gnm).remove(hIndex);
+                addQuadrivalent(firsth, secondh, thirdh, fourth);
+            } //prefpairing, new quadrivalent
+        } else {
+            //no preferential pairing possible: get a random secondh and see 
+            //if it is the same as fourth:
+            secondh = firsth; 
+            while ( hsdone[secondh] ||
+                    (secondh==fourth && !biAllowed) ) {
+                secondh = rand.nextInt(popdata.ploidy);
+            }
+            hsdone[fourth] = true;
+            genohs.get(gnm4).remove(hIndex4);
+            if (secondh==fourth) {
+                //new Bivalent found
+                addBivalent(firsth, secondh);
+                hsdone[secondh] = true;
+                //genohs already done
+            } //no prefpairing, new bivalent
+            else {
+                //new Quadrivalent:
+                thirdh = pairedWith[primaryside][secondh];
+                assert(!hsdone[secondh] && !hsdone[thirdh]);
+                hsdone[secondh] = true;
+                gnm = genomenr[chr][secondaryside][initorder[secondh]];
+                hIndex = genohs.get(gnm).indexOf(initorder[secondh]);
+                genohs.get(gnm).remove(hIndex);
+                hsdone[thirdh] = true;
+                gnm = genomenr[chr][secondaryside][initorder[thirdh]];
+                hIndex = genohs.get(gnm).indexOf(initorder[thirdh]);
+                genohs.get(gnm).remove(hIndex);
+                addQuadrivalent(firsth, secondh, thirdh, fourth);
+            } //no prefpairing, new quadrivalent
+        } //no prefpairing possible
+    } //getForcedBiOrQuadri   
+ 
 
 }

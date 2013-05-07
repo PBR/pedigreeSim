@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 /**
  * Chromosome describes the general features of a chromosome, including its
- * start- and end positions (and therefore its length) and centromere position.
+ * head- and tail positions (and therefore its length) and centromere position.
  * It can also have a linkage map, implemented as an ArrayList of Locus elements.
  * The composition (in terms of founder alleles) of a specific instance
  * of a chromosome is described by a HaploStruct. The Locus alleles present
@@ -21,8 +21,8 @@ import java.util.ArrayList;
 public class Chromosome {
     PopulationData popdata;
     String chromName;
-    private double startPos;      //in Morgan; a chromosome doesn't have to start at position 0
-    private double endPos;        //in Morgan
+    private double headPos;      //in Morgan; a chromosome doesn't have to start at position 0
+    private double tailPos;        //in Morgan
     private double centromerePos; //in Morgan
     ArrayList<Locus> locus;
     
@@ -54,20 +54,20 @@ public class Chromosome {
     int[] founderCount; //cumulative over all iterations
 
 
-    public Chromosome(String chromName, double startPos, double endPos,
+    public Chromosome(String chromName, double headPos, double tailPos,
             double centromerePos, PopulationData popdata) {
         this.popdata = popdata;
         this.chromName = chromName;
         this.centromerePos = centromerePos;
-        if (centromerePos<startPos) {
-            this.startPos = centromerePos; 
+        if (centromerePos<headPos) {
+            this.headPos = centromerePos; 
         } else {
-            this.startPos = startPos;
+            this.headPos = headPos;
         }
-        if (centromerePos>endPos) {
-            this.endPos = centromerePos;
+        if (centromerePos>tailPos) {
+            this.tailPos = centromerePos;
         } else {
-            this.endPos = endPos;
+            this.tailPos = tailPos;
         }
         locus = new ArrayList<Locus>();
     }
@@ -75,7 +75,7 @@ public class Chromosome {
     public Chromosome(String chromName, double length, double centromerePos,
             PopulationData popdata) {
         this(chromName, 0.0, length, centromerePos, popdata);
-        //startPos=0.0, endPos=length
+        //headPos=0.0, tailPos=length
     }
 
     public double getCentromerePos() {
@@ -87,19 +87,31 @@ public class Chromosome {
     }
 
     public double getLength() {
-        return endPos-startPos;
+        return tailPos-headPos;
     }
 
     public ArrayList<Locus> getLocus() {
         return locus;
     }
 
-    public double getStartPos() {
-        return startPos;
+    public double getHeadPos() {
+        return headPos;
     }
 
-    public double getEndPos() {
-        return endPos;
+    public double getTailPos() {
+        return tailPos;
+    }
+    
+    /**
+     * getSidePos returns the head or tail position with side==0 or 1
+     * (actually returns tail pos if side==1, else head pos)
+     * @param side 0 (head) or 1 (tail)
+     * @return
+     * @throws Exception 
+     */
+    public double getSidePos(int side) {
+        if (side==1) return getTailPos();
+        return getHeadPos();
     }
 
     public PopulationData getPopdata() {
@@ -113,20 +125,20 @@ public class Chromosome {
     public void addLocus(Locus newLocus) throws Exception {
         double tolerance = 1.0e-7;
         newLocus.setChrom(this);
-        if (newLocus.getPosition()<startPos) {
-            if (newLocus.getPosition()<startPos-tolerance) {
+        if (newLocus.getPosition()<headPos) {
+            if (newLocus.getPosition()<headPos-tolerance) {
                 throw new Exception("addLocus: position invalid");
             }
             else {
-                newLocus.position = startPos;
+                newLocus.position = headPos;
             }
         }
-        if (newLocus.getPosition()>endPos) {
-            if (newLocus.getPosition()>endPos+tolerance) {
+        if (newLocus.getPosition()>tailPos) {
+            if (newLocus.getPosition()>tailPos+tolerance) {
                 throw new Exception("addLocus: position invalid");
             }
             else {
-                newLocus.position = endPos;
+                newLocus.position = tailPos;
             }
         }
         if (locus.isEmpty()) locus.add(newLocus);
@@ -145,26 +157,26 @@ public class Chromosome {
      * autoAddLoci:
      * for use in test situations where we don't want to specify a whole map;
      * not used in the regular PedigreeSim
-     * @param start
-     * @param end
+     * @param head
+     * @param tail
      * @param interval
      * @param prefix 
      */
-    public void autoAddLoci(double start, double end, double interval, String prefix) {
+    public void autoAddLoci(double head, double tail, double interval, String prefix) {
         if (prefix==null || prefix.trim().equals("")) {
             prefix = "";
         }
-        if (start<startPos) start=startPos;
-        if (end>endPos) end=endPos;
-        int count = (int) (1.0 +0.01*interval+(end-start)/interval);
+        if (head<headPos) head=headPos;
+        if (tail>tailPos) tail=tailPos;
+        int count = (int) (1.0 +0.01*interval+(tail-head)/interval);
         String zeroes = "0";
         if (count>=10) zeroes += "0";
         if (count>=100) zeroes += "0";
         if (count>=1000) zeroes += "0";
         DecimalFormat df = new DecimalFormat(zeroes);
-        double pos = start; count = 0;
+        double pos = head; count = 0;
         Locus loc; count=0;
-        while (pos < end+0.01*interval) {
+        while (pos < tail+0.01*interval) {
             loc = new Locus(prefix + df.format(count), pos, null, popdata);
             try {
                 addLocus(loc);

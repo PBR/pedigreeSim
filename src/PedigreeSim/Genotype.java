@@ -230,8 +230,8 @@ public class Genotype {
                 //rc (still) points to recpos value identical to hrecs value
             }    
         }
-        assert recpos[0]==popdata.getChrom(chrom).getStartPos();
-        //delete the first (StartPos) position:
+        assert recpos[0]==popdata.getChrom(chrom).getHeadPos();
+        //delete the first (headPos) position:
         double[] result = new double[recpos.length-1];
         for (int i=0; i<result.length; i++) {
             result[i] = recpos[i+1];

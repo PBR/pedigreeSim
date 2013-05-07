@@ -248,7 +248,7 @@ public class Tools {
      * k about 2.63 (Kosambi mapping function; own simulations),
      * theta = m/k
      * For the first chiasma the exponential distribution with mean m should be used
-     * (but in ring and chain multivalents we start at both ends of each
+     * (but in cross-type quadrivalents we start at both ends of each
      * chromosome; what to do here?) -->
      * Reasoning:
      * a) if no interference, any location beyond opposite chiasma is acceptable

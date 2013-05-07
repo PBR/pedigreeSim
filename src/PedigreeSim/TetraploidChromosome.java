@@ -38,8 +38,8 @@ public class TetraploidChromosome extends Chromosome {
     double[] founderHomFrSqCum; //squared frq of homoz cumulated over all iterations
     //variables/arraysfor storing a frequency distribution and sums/sums-of-squares
     //of the chrosomome exchange interval in quadrivalents
-    //(the exchange interval is the interval between the last chiasma in the start arms
-    //and the last chiasma in the end arms of the quadrivalent):
+    //(the exchange interval is the interval between the last chiasma in the head arms
+    //and the last chiasma in the tail arms of the quadrivalent):
     static int freqTableLength = 20;
     int[] quadrivalentConfigCount; //counts meioses with 0, 1, ... quadrivalents
     int crossQuadrivalentCount; //counts all cross quadrivalents
@@ -49,10 +49,10 @@ public class TetraploidChromosome extends Chromosome {
      *      start nor the end if the exchange interval is defined (no chiasmata)*/
     int oneExchangeLimCount;/* counts the arm-based quadrivalents where only the
      *      start or the end of the exchange interval is defined (chiasmata only
-     *      in the start arms or only in the end arms*/
+     *      in the head arms or only in the tail arms*/
     int twoExchangeLimCount;/* counts the arm-based quadrivalents where both the
      *      start and the end of the exchange interval are defined (chiasmata both
-     *      in the start arms and the end arms*/
+     *      in the head arms and the tail arms*/
     int[] exchangeMidFreq; //freq.table of the position of the centre of the exchange interval
     int[] exchangeLengthFreq; //freq.table of the length of the exchange interval
     double exchangeMidSum; //sum of the centre positions of the exchange intervals

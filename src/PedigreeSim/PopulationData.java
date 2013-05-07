@@ -74,8 +74,8 @@ public class PopulationData {
 
     /**
      * bivalentsBidirectional:
-     * if false, chiasmata in bivalents are generated from the
-     * start to the end of the chromosome; this is the default situation.
+     * if false, chiasmata in bivalents are generated from the head
+     * to the tail of the chromosome; this is the default situation.
      * if true, they are generated alternating from both ends. This is only
      * an option in the TEST configuration, to check if this approach
      * (which is used for quadrivalents) yields the same distribution
@@ -111,7 +111,7 @@ public class PopulationData {
      * applies only to Quadrivalents
      * if true, chiasmata are generated in turn from the end of each arm
      * (each cycle we get a random order of the 4 arms and generate the
-     * chiasmata in that order; we repat until nu furthe chiasmata fit)
+     * chiasmata in that order; we repat until no further chiasmata fit)
      * if false, each new chiasma is generated from a random arm, so several
      * consecutive chiasmata may be generated in the same arm. This is expected
      * to result in a wider fluctuation of the chromosome exchange point

@@ -727,11 +727,11 @@ public class Main {
                 }
                 String[] alleleNames = new String[popdata.founderAlleleCount];
                 for (i=0; i<nf; i++) {
-                    int startAllele = popdata.getIndiv(indnr[i]).
+                    int headAllele = popdata.getIndiv(indnr[i]).
                             getHaploStruct(cix,0).
-                            getFounderAt(chrom.getStartPos());
+                            getFounderAt(chrom.getHeadPos());
                     for (int hom=0; hom<popdata.ploidy; hom++) {
-                        alleleNames[startAllele+hom] = words[1+i*popdata.ploidy+hom];
+                        alleleNames[headAllele+hom] = words[1+i*popdata.ploidy+hom];
                     }
                 }
                 chrom.getLocus().get(loc).setAlleleName(alleleNames);
@@ -1214,7 +1214,7 @@ public class Main {
     } //simulateHaploStructs
 
     public static void testMeiosis(PopulationData popdata, String fName, double gammaFactor) {
-        boolean printPubTables = false; //works only with a specific set of chromosomes and maps,
+        boolean printPubTables = true; //works only with a specific set of chromosomes and maps,
             //therefore not a user-selectable parameter. 
             //Set to false in public distribution
         try {
@@ -1256,7 +1256,7 @@ public class Main {
             out.println("chromosome\tlength\tstart\tend\tcentromere\tprefPairing\tfracQuadrivalents");
             for (Chromosome chr : popdata.getChromosome()) {
                 out.print(chr.getChromName()+"\t"+(chr.getLength()*100)+"\t"+
-                    (chr.getStartPos()*100)+"\t"+(chr.getEndPos()*100)+"\t"+(chr.getCentromerePos()*100));
+                    (chr.getHeadPos()*100)+"\t"+(chr.getTailPos()*100)+"\t"+(chr.getCentromerePos()*100));
                 int mrkCount = chr.getLocus().size();
                 chr.founderAlleleCountAll = new int[popdata.ploidy][mrkCount];
                 chr.founderAlleleCountSel = new int[popdata.ploidy][mrkCount];
@@ -1362,7 +1362,6 @@ public class Main {
                                         chr.locGenotypeCount[locGenotype[founderAll0][founderAll1]][loc]++;
                                     }  
                                     //with higher ploidy there are too many locus genotypes, don't count
-                                    //TODO does this still work?
                                 }
                             }
 
@@ -1664,9 +1663,9 @@ public class Main {
                     out.println("Distribution of midpoints of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
                     out.println("interval (M)\t\t\tfrequency");
                     for (int i=0; i<chr4.exchangeMidFreq.length; i++) {
-                        out.println((chr4.getStartPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                        out.println((chr4.getHeadPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t<=X<\t" +
-                                (chr4.getStartPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                                (chr4.getHeadPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t" + (((double)chr4.exchangeMidFreq[i])/
                                  chr4.twoExchangeLimCount));
                     }
@@ -1682,9 +1681,9 @@ public class Main {
                     //Note: with popdata.quadriMethod==2 and no chiasma interference the length is always 0: 
                     //the last failed chiasma extends the exchangeLim to the opposing chiasma or chromosome end
                     for (int i=0; i<chr4.exchangeLengthFreq.length; i++) {
-                        out.println((chr4.getStartPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                        out.println((chr4.getHeadPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t<=X<\t" +
-                                (chr4.getStartPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
+                                (chr4.getHeadPos()+(i+1)*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t" + (((double)(chr4.exchangeLengthFreq[i]))/
                                  chr4.twoExchangeLimCount));
                     }
@@ -1893,78 +1892,82 @@ public class Main {
             
             if (printPubTables) {
                 //Note: this only works with a specific set of
-                //chromosomes and maps
-                out.println();
-                out.print("Recombination table; expected recombination based on ");
-                if (recombfunction==0) {
-                    if (popdata.chiasmaInterference) out.println("Kosambi");
-                    else out.println("Haldane");
-                }
-                else if (recombfunction==1) {
-                    if (popdata.chiasmaInterference) out.println("Sved_parallel based on Kosambi");
-                    else out.println("Sved_parallel based on Haldane");
-                }
-                else {
-                    assert recombfunction==2;
-                    if (popdata.chiasmaInterference) out.println("Sved_cross-type based on Kosambi");
-                    else out.println("Sved_cross-type based on Haldane");
-                }    
-                int[][][][] recloc = new int[][][][] 
-                {
-                    { //chrom A
-                        { {0,1},{0,2},{0,3},{0,4},{0,6} },
-                        { {9,11},{8,12},{7,13},{6,14},{5,15},{0,20} },
-                        { {19,20},{18,20},{17,20},{16,20},{14,20} } 
-                    }, 
-                    { //chrom B
-                        { {0,1},{0,2},{0,3},{0,4},{0,5},{0,12} },
-                        { {11,13},{10,14},{9,15},{8,16},{7,17},{6,18},{0,24} },
-                        { {23,24},{22,24},{21,24},{20,24},{19,24},{12,24} }
-                    },
-                    { //chrom C
-                        { {0,1},{0,2},{0,3},{0,4},{0,5},{0,7},{0,15} },
-                        { {14,16},{13,17},{12,18},{11,19},{10,20},{8,22},{7,23},{0,30} },
-                        { {29,30},{28,30},{27,30},{26,30},{25,30},{23,30},{15,30} }
-                    },
-                    { //chrom D
-                        { {0,1},{0,2},{0,3},{0,4},{0,5},{0,6},{0,8},{0,17},{0,34} },
-                        { {16,18},{15,19},{14,20},{13,21},{12,22},{11,23},{9,25},{8,26},{0,34} },
-                        { {33,34},{32,34},{31,34},{30,34},{29,34},{28,34},{26,34},{17,34} }
-                    }
-                };
-                out.println("\t\tA\t\tA\t\tA\t\tB\t\tB\t\tB\t\tC\t\tC\t\tC\t\tD\t\tD\t\tD");
-                out.println("interval\trec\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom");
-                for (int line=0; line<9; line++) {
-                    double dist = popdata.getChrom(3).getLocus().get(recloc[3][0][line][1]).position;
-                    double expRec = recombfunction==0 ? 
-                            Tools.mapdistToRecomb(dist,popdata.chiasmaInterference) :
-                            recombfunction==1 ?
-                            Tools.recombBivalentToRecombParallelQuadrivalent(
-                                Tools.mapdistToRecomb(dist,popdata.chiasmaInterference)) :
-                            Tools.recombBivalentToRecombCrossQuadrivalent(
-                                Tools.mapdistToRecomb(dist,popdata.chiasmaInterference));
-                    //double expRec = Tools.mapdistToRecomb(dist,popdata.chiasmaInterference);
-                    out.print(dist+"\t"+expRec);
-                    for (int c=0; c<4; c++) {
-                        Chromosome ch = popdata.getChrom(c);
-                        for (int col=0; col<3; col++) {
-                            if (recloc[c][col].length>line) {
-                                int locA = recloc[c][col][line][0];
-                                int locB = recloc[c][col][line][1];
-                                double rec = ch.recombFrCum[locB][locA]/popdata.testIter;
-                                double stdev= Tools.sampleStDev(
-                                        ch.recombFrCum[locB][locA],
-                                        ch.recombFrSqCum[locB][locA],
-                                        popdata.testIter);
-                                double tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
-                                double tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
-                                out.print("\t"+rec+"\t"+tprob);
-                            }
-                            else out.print("\t\t");
-                        }    
-                    }
+                //chromosomes and maps so printPubTables should generally be set to false
+                try {
                     out.println();
-                } //for line
+                    out.print("Recombination table; expected recombination based on ");
+                    if (recombfunction==0) {
+                        if (popdata.chiasmaInterference) out.println("Kosambi");
+                        else out.println("Haldane");
+                    }
+                    else if (recombfunction==1) {
+                        if (popdata.chiasmaInterference) out.println("Sved_parallel based on Kosambi");
+                        else out.println("Sved_parallel based on Haldane");
+                    }
+                    else {
+                        assert recombfunction==2;
+                        if (popdata.chiasmaInterference) out.println("Sved_cross-type based on Kosambi");
+                        else out.println("Sved_cross-type based on Haldane");
+                    }    
+                    int[][][][] recloc = new int[][][][] 
+                    {
+                        { //chrom A
+                            { {0,1},{0,2},{0,3},{0,4},{0,6} },
+                            { {9,11},{8,12},{7,13},{6,14},{5,15},{0,20} },
+                            { {19,20},{18,20},{17,20},{16,20},{14,20} } 
+                        }, 
+                        { //chrom B
+                            { {0,1},{0,2},{0,3},{0,4},{0,5},{0,12} },
+                            { {11,13},{10,14},{9,15},{8,16},{7,17},{6,18},{0,24} },
+                            { {23,24},{22,24},{21,24},{20,24},{19,24},{12,24} }
+                        },
+                        { //chrom C
+                            { {0,1},{0,2},{0,3},{0,4},{0,5},{0,7},{0,15} },
+                            { {14,16},{13,17},{12,18},{11,19},{10,20},{8,22},{7,23},{0,30} },
+                            { {29,30},{28,30},{27,30},{26,30},{25,30},{23,30},{15,30} }
+                        },
+                        { //chrom D
+                            { {0,1},{0,2},{0,3},{0,4},{0,5},{0,6},{0,8},{0,17},{0,34} },
+                            { {16,18},{15,19},{14,20},{13,21},{12,22},{11,23},{9,25},{8,26},{0,34} },
+                            { {33,34},{32,34},{31,34},{30,34},{29,34},{28,34},{26,34},{17,34} }
+                        }
+                    };
+                    out.println("\t\tA\t\tA\t\tA\t\tB\t\tB\t\tB\t\tC\t\tC\t\tC\t\tD\t\tD\t\tD");
+                    out.println("interval\trec\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom\t\ttop\t\tcenter\t\tbottom");
+                    for (int line=0; line<9; line++) {
+                        double dist = popdata.getChrom(3).getLocus().get(recloc[3][0][line][1]).position;
+                        double expRec = recombfunction==0 ? 
+                                Tools.mapdistToRecomb(dist,popdata.chiasmaInterference) :
+                                recombfunction==1 ?
+                                Tools.recombBivalentToRecombParallelQuadrivalent(
+                                    Tools.mapdistToRecomb(dist,popdata.chiasmaInterference)) :
+                                Tools.recombBivalentToRecombCrossQuadrivalent(
+                                    Tools.mapdistToRecomb(dist,popdata.chiasmaInterference));
+                        //double expRec = Tools.mapdistToRecomb(dist,popdata.chiasmaInterference);
+                        out.print(dist+"\t"+expRec);
+                        for (int c=0; c<4; c++) {
+                            Chromosome ch = popdata.getChrom(c);
+                            for (int col=0; col<3; col++) {
+                                if (recloc[c][col].length>line) {
+                                    int locA = recloc[c][col][line][0];
+                                    int locB = recloc[c][col][line][1];
+                                    double rec = ch.recombFrCum[locB][locA]/popdata.testIter;
+                                    double stdev= Tools.sampleStDev(
+                                            ch.recombFrCum[locB][locA],
+                                            ch.recombFrSqCum[locB][locA],
+                                            popdata.testIter);
+                                    double tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
+                                    double tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                                    out.print("\t"+rec+"\t"+tprob);
+                                }
+                                else out.print("\t\t");
+                            }    
+                        }
+                        out.println();
+                    } //for line
+                } catch(Exception ex) {
+                    System.out.println("Exception in printPubTables: "+ex.getMessage());
+                }    
             } //printPubTables
 
             out.flush();

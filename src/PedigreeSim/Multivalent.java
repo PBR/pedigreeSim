@@ -159,9 +159,9 @@ abstract public class Multivalent {
                 slots[s] = new HaploStruct(chrom, -1); //the first segment will be ignored
             }
             double pos =  //position of first chiasma
-                chrom.getStartPos() + distToFirstChiasma(chiasmaDist);
+                chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
             int[] ix = new int[2]; //the two slots for the currect chiasma
-            while (pos < chrom.getEndPos()) {
+            while (pos < chrom.getTailPos()) {
                 //loop: apply crossing-over and get next chiasma
                 ix[0] = rand.nextInt(slotcount);
                 do {
@@ -181,7 +181,7 @@ abstract public class Multivalent {
 
     /**
      * rejectDist:
-     * in an arm-based Quadrivalent chiasmata are generated from both ends
+     * in a cross-type Quadrivalent chiasmata are generated from both ends
      * of each chromosome. A new chiasma generated from one end may not "fit"
      * as seen from the other end: it may be located beyond that end of the
      * chromosome, or it may be located beyond the last chiasma generated
@@ -218,8 +218,8 @@ abstract public class Multivalent {
 
     /**
      * doBidirectionalCrossingOver does the same as doCrossingOver,
-     * but the chiasmata are generated alternating from the start and
-     * the end of the chromosome.
+     * but the chiasmata are generated alternating from the head and
+     * the tail of the chromosome.
      * This is the way they are generated in Quadrivalents (starting from
      * the ends of each arm) because that is the only logical way in that case,
      * but we run into the decision when a new chiasma can or cannot be
@@ -244,24 +244,24 @@ abstract public class Multivalent {
                 slots[s] = new HaploStruct(chrom, -1); //the first segment will be ignored
             }
             double[] pos = new double[] {Double.NaN, Double.NaN};
-               //new position of next chiasma from chromosome start and end
+               //new position of next chiasma from chromosome head and tail
             int[] ix = new int[2]; //the two slots for the currect chiasma
 
-            /* First chiasma, from start or from end, outside loop
+            /* First chiasma, from head or from tail, outside loop
              * because it is tested against the other end, not against another
              * chiasma, and therefore interference is not an issue
              */
-            int side = rand.nextInt(2); //0=start of chrom, 1 = end of chrom
+            int side = rand.nextInt(2); //0=head of chrom, 1 = tail of chrom
             boolean finished = false; //true when no more chiasmata can be added
             if (side==0) {
-                //start from chromosome start
-                pos[0] = chrom.getStartPos() + distToFirstChiasma(chiasmaDist);
-                if (pos[0] >= chrom.getEndPos()) finished=true;
+                //start from chromosome head
+                pos[0] = chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
+                if (pos[0] >= chrom.getTailPos()) finished=true;
             }
             else { //side=1
-                //start from chromosome end
-                pos[1] = chrom.getEndPos() - distToFirstChiasma(chiasmaDist);
-                if (pos[1] <= chrom.getStartPos()) finished=true;
+                //start from chromosome tail
+                pos[1] = chrom.getTailPos() - distToFirstChiasma(chiasmaDist);
+                if (pos[1] <= chrom.getHeadPos()) finished=true;
             }
             if (!finished) {
                 //add the first chiasma
@@ -278,10 +278,10 @@ abstract public class Multivalent {
                 side = 1-side;
                 if (Double.isNaN(pos[side])) { //occurs only at the second chiasma
                     if (side==0) {
-                        pos[0] = chrom.getStartPos() + distToFirstChiasma(chiasmaDist);
+                        pos[0] = chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
                     }
                     else {
-                        pos[1] = chrom.getEndPos() - distToFirstChiasma(chiasmaDist);
+                        pos[1] = chrom.getTailPos() - distToFirstChiasma(chiasmaDist);
                     }
                 }
                 else {
@@ -312,7 +312,7 @@ abstract public class Multivalent {
      * (4 slots) and in a quadrivalent from 0 to 7 (8 slots).
      * In slotsToPatterns, the branching patterns stored in the slots is
      * converted into a set of mosaics ("patterns") that are obtained
-     * by following each recombined chromatid from the start of a slot
+     * by following each recombined chromatid from the head of a slot
      * through the branching pattern. Therefore the patterns are composed
      * of a sequence of the slots from which they are made up. But the slot
      * numbers are converted into the chromosome number they belong to
@@ -320,7 +320,7 @@ abstract public class Multivalent {
      * quadrivalent). Therefore the founder array of a pattern can contain
      * only numbers 0 and 1 (bivalent) or 0..3 (quadrivalent).
      * Note that the order of the patterns is determined by the chromosome
-     * start: patterns 0 and 1 start with founder 0, patterns 2 and 3 with
+     * head: patterns 0 and 1 start with founder 0, patterns 2 and 3 with
      * founder 1 etc.
      * @param slots
      * @return
@@ -366,8 +366,14 @@ abstract public class Multivalent {
      * Note: As the chromosomes are NOT randomized in the Bi- and Quadrivalent 
      * constructors, the random assignment of centromeres to the two poles
      * of the first meiotic division must be done here. 
-     * TODO 15-4-13: is that still true? Randomization not in constructor
+     * Question 15-4-13: is that still true? Randomization not in constructor
      * but in Individual.calcChromConfig?
+     * Answer: the 2 or 4 chromosomes are randomized already
+     * in Individual.calcChromConfig, but for cross-type Quadrivalents
+     * separation in first meiotic division should be independent of the 
+     * arms structure;
+     * therefore randomization of centromeres still seems important
+     * (and even if it is not, it is certainly not wrong)
      * The order of the chromosomes in each gamete doesn't really matter
      * but to make it as random as possible the order of the chromosomes
      * in each gamete is randomized.
@@ -451,8 +457,11 @@ abstract public class Multivalent {
      *        are from one pole and the last two gametes from the other pole.
      *    - the sorting of the patterns haplotypes array therefore takes place
      *      based of the allele in founder array at the centromere position.
-     *      TODO 15-4-13 is that correct? except in a founder several homologs
-     *      may have the same founder allele at the centromere ???
+     *      Question 15-4-13: Is that correct? except in a founder several homologs
+     *      may have the same founder allele at the centromere ?
+     *      Answer: although it is called the founder array, in a pattern
+     *      haplotype the founder array indicates the slots, not the real
+     *      founder allele. So yes, it is correct.
      * (2) while the patterns describe how the recombinants are composed of
      *     sections of the original 2 (bivalent) or 4 (quadrivalent) chromosomes
      *     in the multivalent, the gametes must be specified in terms of the
@@ -544,7 +553,7 @@ abstract public class Multivalent {
                 double patstart = pattern.getRecombPos().get(patseg);
                 double patend = patseg < pattern.segmentCount()-1 ?
                     pattern.getRecombPos().get(patseg+1) :
-                    getChrom().getEndPos();
+                    getChrom().getTailPos();
                 int pf = pattern.getFounder().get(patseg); //always in 0..3 for Quadrivalent, 0..1 for Bivalent (?)
                 HaploStruct hs = haplostruct[pf];
                 //find the hsseg in which patstart falls:

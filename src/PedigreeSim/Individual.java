@@ -35,21 +35,21 @@ public class Individual extends Genotype {
      * -1 no preferential pairing possible at either end (diploid, or
      *    tetraploid if not one odd and one even pair of founder alleles
      *    at either end)
-     * 0  preferential pairing possible at chromosome start only
-     * 1  preferential pairing possible at chromosome end only
+     * 0  preferential pairing possible at chromosome head only
+     * 1  preferential pairing possible at chromosome tail only
      * 2  preferential pairing possible at both ends, pairing matches
      *    (at both ends either 01/23 or 02/13, where odd and even may be
      *     the same or reversed in both ends of all chromosomes)
      * 3  preferential pairing possible at both end, pairing does not match
      *    (i.e. at one end the pairing is 01/23, at the other 02/13)
      */
-    private int[] prefPairingConfig;
+    //private int[] prefPairingConfig;
 
     /**
      * prefPairing:
      * array indicating which chromosome ends may form preferential pairs
      * first index refers to the chromosome
-     * second index is 0/1 for chromosome start or end
+     * second index is 0/1 for chromosome head or tail
      * The content is a number from 0 to 3 indicating the preferential pairing:
      * -1 = no pref pairing: 3 or 4 haplostructs have same type (even or odd)
      *  0 = chrom 0/1 vs chrom 2/3
@@ -58,14 +58,14 @@ public class Individual extends Genotype {
      * (i.e. the content is (partner of chrom 0)-1, or -1 if no pairing)
      * The array always exists
      */
-    int[][] prefPairing;
+    //int[][] prefPairing;
 
     /**
      * pairs[i-1] list the chromosomes indicated by prefPairing i:
      * the first two numbers are the chromosomes in the first pair,
      * the last two are the chromosomes in the second pair
      */
-    static int[][]pairs = new int[][] { {0,1,2,3},{0,2,1,3},{0,3,1,2} };
+    //static int[][]pairs = new int[][] { {0,1,2,3},{0,2,1,3},{0,3,1,2} };
 
     /**
      * Class ChromConfig is only relevant for tetraploid individuals.
@@ -89,8 +89,8 @@ public class Individual extends Genotype {
      */
     
     /**
-     * There are in principle ploidy/2 different diploid genomes
-     * in a polyploid, and a founder allele fa belongs to genome fa % (ploidy/2).
+     * There are in principle ploidy/2 different diploid genomes in a polyploid
+     * population, and a founder allele fa belongs to genome fa % (ploidy/2).
      * genomenr[chrom][side][h] will contain the genome number corresponding
      * to the founderallele at side 0 or 1 (head or tail) of haplostruct[h]
      * of chromosome chrom.
@@ -117,7 +117,7 @@ public class Individual extends Genotype {
      * occurs an odd number of times, there are ploidy/2 preferential pairs 
      * possible, else less preferential pairs are possible.
      */
-    int[][] possiblePairCount; //
+    int[][] possiblePairCount;
     
 
     /**
@@ -381,7 +381,7 @@ public class Individual extends Genotype {
                     for (int hom=0; hom<popdata.ploidy/2; hom++) {
                         System.out.println(g+"\t"+c+"\t"+hom+"\t"+
                         gametes.get(g).getHaploStruct(c, hom).toString());
-                        if (gametes.get(g).getHaploStruct(c, hom).isRecombinantStart(popdata.getChrom(c).getEndPos())) {
+                        if (gametes.get(g).getHaploStruct(c, hom).isRecombinantHead(popdata.getChrom(c).getTailPos())) {
                             recCount[c]++;
                         }
                     }
@@ -436,8 +436,8 @@ public class Individual extends Genotype {
                 for (int h=0; h<popdata.ploidy; h++) {
                     //first get the genome number at the haplostruct side:
                     genomenr[chr][side][h] = (side==0 ?
-                            haplostruct[chr][h].getFounderAtStart() :
-                            haplostruct[chr][h].getFounderAtEnd())
+                            haplostruct[chr][h].getFounderAtHead() :
+                            haplostruct[chr][h].getFounderAtTail())
                             % (popdata.ploidy/2);
                     //and list all the haplostruct sides in genomehs:
                     genomehs.get(chr).get(side).get(genomenr[chr][side][h]).add(h);

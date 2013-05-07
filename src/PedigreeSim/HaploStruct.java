@@ -19,9 +19,9 @@ import java.util.TreeSet;
  * - recombpos lists the positions of the recombinations as a sequence
  *   of doubles. For each segment (each element of founder) there is also
  *   a position in recombPos: this is the position where the segment STARTS.
- *   The first recombPos entry is the chromosome's startPos. The end of the
+ *   The first recombPos entry is the chromosome's headPos. The end of the
  *   final segment is not listed in recombPos, but is equal to the
- *   chromosome's endPos.
+ *   chromosome's tailPos.
  * A HaploStruct without recombinations has only one segment, i.e. one
  * entry in the founder and recombPos ArrayLists.
  * @author Roeland Voorrips
@@ -30,7 +30,7 @@ public class HaploStruct implements Cloneable {
     private ArrayList<Integer> founder;
         //founder allele of each segment
     private ArrayList<Double> recombPos;
-        //recombination positions, start position of each segment, first is chrom.startPos
+        //recombination positions, start position of each segment, first is chrom.headPos
     private Chromosome chrom;
 
     //protected NumberFormat = null;
@@ -43,7 +43,7 @@ public class HaploStruct implements Cloneable {
         chrom = chromosome;
         recombPos = new ArrayList<Double>();
         founder = new ArrayList<Integer>();
-        recombPos.add(chrom.getStartPos());
+        recombPos.add(chrom.getHeadPos());
         founder.add(startFounderAllele);
     }
 
@@ -133,8 +133,8 @@ public class HaploStruct implements Cloneable {
     }
 
     public int getFounderAt(double position) throws Exception {
-        if (position<chrom.getStartPos() ||
-            position>chrom.getEndPos()) {
+        if (position<chrom.getHeadPos() ||
+            position>chrom.getTailPos()) {
             throw new Exception("getFounderAt: invalid position");
         } else {
             return founder.get(findSegment(position));
@@ -151,22 +151,22 @@ public class HaploStruct implements Cloneable {
         return f;
     }
 
-    public int getFounderAtStart() {
+    public int getFounderAtHead() {
         int f=0;
         try {
-            f = getFounderAt(chrom.getStartPos());
+            f = getFounderAt(chrom.getHeadPos());
         } catch (Exception ex) {
-            System.out.println("getFounderAtStart: "+ex.getMessage());
+            System.out.println("getFounderAtHead: "+ex.getMessage());
         }
         return f;
     }
 
-    public int getFounderAtEnd() {
+    public int getFounderAtTail() {
         int f=0;
         try {
-            f = getFounderAt(chrom.getEndPos());
+            f = getFounderAt(chrom.getTailPos());
         } catch (Exception ex) {
-            System.out.println("getFounderAtEnd: "+ex.getMessage());
+            System.out.println("getFounderAtTail: "+ex.getMessage());
         }
         return f;
     }
@@ -187,27 +187,27 @@ public class HaploStruct implements Cloneable {
         if (hs==null || !this.getChrom().equals(hs.chrom)) {
             throw new Exception("recombine: parameter hs invalid");
         }
-        if (recombPos<chrom.getStartPos() || recombPos>chrom.getEndPos()) {
+        if (recombPos<chrom.getHeadPos() || recombPos>chrom.getTailPos()) {
             throw new Exception("recombine: parameter recombPos invalid");
         }
-        return recombPos>chrom.getStartPos() && recombPos<chrom.getEndPos();
-            //recombination exactly at start of end will be ignored)
+        return recombPos>chrom.getHeadPos() && recombPos<chrom.getTailPos();
+            //recombination exactly at head or tail will be ignored)
     }
 
     /**
-     * recombine_keepStart produces the result of a recombination at position
+     * recombine_keepHead produces the result of a recombination at position
      * recombPos between HaploStructs this and hs.
      * The recombined Haplostructs are reassigned to this and hs such that
-     * the starts of the chromosomes stay where they were.
+     * the heads of the chromosomes stay where they were.
      * @param hs must belong to the same chromosome as this
-     * @param recombPos a recombination position outside the chromosome start
-     * and end throws an Exception; recombinations exactly at the start and end
+     * @param recombPos a recombination position outside the chromosome head
+     * and tail throws an Exception; recombinations exactly at the head and tail
      * are ignored.
      * @throws Exception
      */
-    public void recombine_keepStart(HaploStruct hs, double recombPos) throws Exception {
+    public void recombine_keepHead(HaploStruct hs, double recombPos) throws Exception {
         if (recombinationInitialization(hs, recombPos)) {
-            //rombination exactly at start of end is ignored)
+            //rombination exactly at head or tail is ignored)
 
             //find the segments of each where the chiasma is located:
             int thisseg = this.findSegment(recombPos);
@@ -239,23 +239,23 @@ public class HaploStruct implements Cloneable {
                 hs.recombPos.add(tmprecpos.get(s));
                 hs.founder.add(tmpfounder.get(s));
             }
-        } //recombPos between (not at) chrom start and and
-    } //recombine
+        } //recombPos between (not at) chrom head and tail
+    } //recombine_keepHead
 
     /**
-     * recombine_keepStart produces the result of a recombination at position
+     * recombine_keepTail produces the result of a recombination at position
      * recombPos between HaploStructs this and hs.
      * The recombined Haplostructs are reassigned to this and hs such that
      * the ends of the chromosomes stay where they were.
      * @param hs must belong to the same chromosome as this
-     * @param recombPos a recombination position outside the chromosome start
-     * and end throws an Exception; recombinations exactly at the start and end
+     * @param recombPos a recombination position outside the chromosome head
+     * and tail throws an Exception; recombinations exactly at the head and tail
      * are ignored.
      * @throws Exception
      */
-    public void recombine_keepEnd(HaploStruct hs, double recombPos) throws Exception {
+    public void recombine_keepTail(HaploStruct hs, double recombPos) throws Exception {
         if (recombinationInitialization(hs, recombPos)) {
-            recombine_keepStart(hs, recombPos);
+            recombine_keepHead(hs, recombPos);
             /* now the chromosome ends are switched and must be switched back:
              */
             ArrayList<Double> tmprecpos = new ArrayList<Double>();
@@ -267,7 +267,7 @@ public class HaploStruct implements Cloneable {
             hs.recombPos = tmprecpos;
             hs.founder = tmpfounder;
         }
-    } //recombine_keepEnd
+    } //recombine_keepTail
 
     /**
      * recombine produces the result of a recombination at position recombPos
@@ -275,13 +275,13 @@ public class HaploStruct implements Cloneable {
      * The recombined Haplostructs are reassigned to this and hs such that
      * the centromeres stay where they were.
      * @param hs must belong to the same chromosome as this
-     * @param recombPos a recombination position outside the chromosome start
-     * and end throws an Exception; recombinations exactly at the start and end
+     * @param recombPos a recombination position outside the chromosome head
+     * and tail throws an Exception; recombinations exactly at the head and tail
      * are ignored.
      * @throws Exception
      */
     public void recombine(HaploStruct hs, double recombPos) throws Exception {
-        recombine_keepStart(hs, recombPos);
+        recombine_keepHead(hs, recombPos);
         /* if the recombination took place left of the centromere, now the
          * centromeres are switched and must be switched back:
          */
@@ -322,22 +322,22 @@ public class HaploStruct implements Cloneable {
      *
      * @param position
      * @return true if founderallele at position is different from that
-     * at start of chromosome
+     * at head of chromosome
      * @throws Exception
      */
-    public boolean isRecombinantStart(double position) throws Exception {
-        return getFounderAt(position) != getFounderAt(chrom.getStartPos());
+    public boolean isRecombinantHead(double position) throws Exception {
+        return getFounderAt(position) != getFounderAt(chrom.getHeadPos());
     }
 
     /**
      *
      * @param position
      * @return true if founderallele at position is different from that
-     * at end of chromosome
+     * at tail of chromosome
      * @throws Exception
      */
-    public boolean isRecombinantEnd(double position) throws Exception {
-        return getFounderAt(position) != getFounderAt(chrom.getEndPos());
+    public boolean isRecombinantTail(double position) throws Exception {
+        return getFounderAt(position) != getFounderAt(chrom.getTailPos());
     }
 
     public TreeSet<Integer> founderAlleles() {

@@ -28,10 +28,8 @@ package PedigreeSim;
 import JSci.maths.statistics.TDistribution;
 import java.io.*;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Random;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  *
@@ -1220,10 +1218,14 @@ public class Main {
         try {
             
             //preparation:
+            Calendar cal = new GregorianCalendar();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+            cal.getTime();
+            fName = fName+"_"+sdf.format(cal.getTime());
             popdata.tools.GAMMAFACTOR = gammaFactor;
             PrintWriter out = new PrintWriter(
                     new BufferedWriter(new FileWriter(fName+".dat")));
-            out.println("PedigreeSim test output");
+            out.println("PedigreeSim test output\t"+fName);
             out.println();
             out.println("test settings:");
             String[] settings = popdata.popdataSettings();
@@ -1299,6 +1301,7 @@ public class Main {
                 out.println();
             }
             out.flush();
+            long timertime = System.nanoTime();
             for (int iter=0; iter<popdata.testIter; iter++) {
                 System.out.println("Iteration "+iter);
                 //clear the arrays:
@@ -1562,6 +1565,7 @@ public class Main {
                     }
                 } //for chr
             } //for iter
+            timertime = System.nanoTime() - timertime;
 
             //output accumulated recombination statistics over all iterations:
             int recombfunction=0; //calculated per chromosome; for publication tables we assume
@@ -1969,6 +1973,8 @@ public class Main {
                     System.out.println("Exception in printPubTables: "+ex.getMessage());
                 }    
             } //printPubTables
+            
+            out.println("Elapsed time\t"+(1.0*timertime/1e9)+"\tseconds");
 
             out.flush();
         } catch (Exception ex) {

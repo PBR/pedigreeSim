@@ -144,19 +144,28 @@ public class Quadrivalent extends Multivalent {
         double distExchangelim = sideFact * (pos-exchangeLim[1-side]); 
             //distance to opposite side of exchange interval: >0 if beyond, <0 if before 
         if (distExchangelim>=0.0 || 
-                !Double.isNaN(mindist) && rejectDist(mindist)) {
+                (!Double.isNaN(mindist) && rejectDist(mindist)) ) {
             /* new chiasma pos conflicts with earlier chiasmata or 
              * attempted chiasmata or chromosome end on opposite branches
              * because one of following reasons:
              * 1. no opposite chiasmata, new chiasma beyond chrom end: 
-             *    distExchangelim>0
+             *    distExchangelim>=0
              * 2. attempted and/or actual opposite chiasma(ta),
-             *    new chiasma beyond closest position of these: distExchangelim>0
+             *    new chiasma beyond closest position of these: distExchangelim>=0
              * 3. actual opposite chiasma(ta), new chiasma before these
              *    but rejected due to interference: distExchangelim<0
+             *
+             * Is 2 correct? If exchangeLim[1-side] was moved due to
+             * a failed (interference) chiasma, is a new chiasma beyond
+             * this limit then wrong?
+             * Yes, because the failed chiasma implied that the pairing
+             * in the opposite arm had progressed to that point, so a new
+             * chiasma from the current arm at or beyond that position
+             * is not possible any more
              */
+                    
+                            
             armFinished[a] = true;
-            boolean tempLimMoved = false;
             if (distExchangelim>=0.0) {
                 /* new chiasma beyond opposite side of exchange interval,
                  * reason 1 or 2 above:
@@ -164,7 +173,19 @@ public class Quadrivalent extends Multivalent {
                  * (by moving this side to the opposite side)
                  */
                 tempLim = exchangeLim[1-side];
-                tempLimMoved = true;
+                /* if tempLim now at opposite end of chrom the opposite arms 
+                 * are finished, 
+                 * or if not, the opposite arms with a chiasma at 
+                 * exchangeLim[1-side] are now also finished:
+                 */
+                for (int oa=0; oa<2;oa++) {
+                    double lpoa;
+                    if ( tempLim == chrom.getSidePos(1-side) ||
+                         ( !Double.isNaN(lpoa=lastpos[oppoArms[side][oa]]) &&
+                           (sideFact * (lpoa-tempLim)) <= 0 ) ) {
+                        armFinished[oppoArms[side][oa]] = true;
+                    }    
+                }  
             } else {
                 /* distExchangelim<0.0	
                  * only possible due to interference, reason 3 above:
@@ -172,9 +193,10 @@ public class Quadrivalent extends Multivalent {
                  * this side to pos of this attempted chiasma (if that is
                  * beyond the current start of the interval)
                  */
+                assert(popdata.chiasmaInterference);
                 if (sideFact * (pos-tempLim) > 0) {
                     tempLim = pos; //truncatedPos;
-                    tempLimMoved = true;
+                    //tempLim2Otherside = true;
                 }
                 /* the arm with the chiasma which the interference took place 
                  * is now also finished:
@@ -182,19 +204,7 @@ public class Quadrivalent extends Multivalent {
                 assert(nearestArm>-1);
                 armFinished[nearestArm] = true;
             } 
-            //in both cases: check armFinished for opposite arms based on new tempLim:
-            if (tempLimMoved) {
-                for (int oa=0; oa<2;oa++) {
-                    double lpoa = lastpos[oppoArms[side][oa]];
-                    if ( ( Double.isNaN(lpoa) &&
-                           (sideFact * (tempLim-chrom.getSidePos(1-side))) >=0 ) ||
-                         ( !Double.isNaN(lpoa) &&
-                           (sideFact * (lpoa-tempLim)) >= 0 ) ) {
-                        armFinished[oppoArms[side][oa]] = true;
-                    }    
-                }   
-            }
-            // check if all arms now finished:
+            //this arm is now finished; check if all arms now finished:
             crossoverFinished = true;
             for (int i=0; i<4; i++) {
                 crossoverFinished = crossoverFinished && armFinished[i];
@@ -202,10 +212,18 @@ public class Quadrivalent extends Multivalent {
             //false if at least one armFinished false
         }
         else {
-            //no conflict
+            /* distExchangelim<0.0 && 
+             *    (Double.isNaN(mindist) || !rejectDist(mindist)), meaning:
+             * new chiasma not beyond opposite end of exchange interval,
+             * i.e. not beyond chromosome end and not beyond opposing chiasma,
+             * so on an allowed part of chromosome; AND
+             * either no opposing chiasma (Double.isNaN(mindist))
+             * or no interference with existing opposing chiasma (!rejectDist(mindist))
+             * Therefore: no conflict, accept new chiasma
+             */
             lastpos[a] = pos;
             /* reduce exchange interval by moving
-             * this side to pos of this attempted chiasma (if that is
+             * this side to pos of this chiasma (if that is
              * beyond the current start of the interval):
              */
             if ((sideFact * (pos-tempLim)) > 0) {
@@ -280,61 +298,53 @@ public class Quadrivalent extends Multivalent {
      * arms" of the left and right arms, and v.v.)
      * We define 3 doCrossingOver methods for a cross-type Quadrivalent,
      * which are selected by popdata.quadriMethod = 1/2/3:
-     * 1. Chiasmata are generated from the ends of each arm, until they
+     * 1. (implemented in testChiasma13):
+     * Chiasmata are generated from the ends of each arm, until they
      * conflict with an existing chiasma in an opposite arm or are located
      * beyond the opposite end. When a conflicting chiasma has occurred
      * no new chiasmata are generated for that arm, but in the other arms
      * the process continues, until in all arms a conflicting chiasma has 
      * occurred. This would mean that a conflict affects only the arm from which
      * the next chiasma was attempted but not the arm in which the conflicting
-     * chiasma is located. This seems unreasonable, therefore we use the following
-     * approach, implemented in testChiasma2:
-     * 2. Chiasmata are generated from the ends of each arm until the first
+     * chiasma is located.
+     * 2. (implemented in testChiasma2):
+     * Chiasmata are generated from the ends of each arm until the first
      * conflict occurs. A conflict can occur because:
      * 2a. the new chiasma is beyond the opposite end of the chromosome
      * (this is only possible if no chiasmata have occurred in the two opposing 
      * arms, else situation 2b applies). - "reason 1" in testChiasma2
      * In this case in effect there are two bivalents, and for one of these
      * bivalents the crossing-over process has just finished.
-     * Implementation: if the arm has the chromosome head, then the
-     * exhangeLim[0] becomes chromosomeTail, exchangeLim[1] was already 
-     * chromosomeTail, and armFinished is true for this arm. 
-     * Valid chiasmata can only be 
-     * generated in the other arm that has also the chromosome head; until 
-     * here also a chiasma is generated beyond the chromosome tail.
      * 2b. the new chiasma is beyond the nearest chiasma in one of the two
      * opposing arms. In that case the chromosome exchange point is now fixed
      * at that chiasma position and no new chiasmata can be generated in the
      * two arms involved in the conflict. In the other two arms further chiasmata
-     * are generated until they conflict with the exchange point. - "reason 2" in testChiasma2
-     * Implementation: if the current arm has the chromosome head, the
-     * exchangeLim[0] and [1] are now set to the position of the 
-     * conflicting chiasma and no more chiasmata can be generated in these
-     * two arms.
+     * are generated until they conflict with the exchange point. - "reason 2" 
+     * in testChiasma2
      * 2c. the new chiasma is generated before the nearest chiasma on the
      * two opposing arm, but close to it and due to interference it is conflicting
      * (this can only occur when popdata.chiasmaInterference is true). In that
      * case no new chiasmata are generated for this arm, but the failed
-     * chiasma defines the new start point of the chromosome exchange interval -
-     * "reason 3" in testChiasma2
-     * Implementation: if the current arm has the chromosome head,
-     * exchangeLim[0] is set to the failed position and armFinished is
-     * true. armFinished is also true for the opposite arm with the interfering chiasma
+     * chiasma defines the new start point of the chromosome exchange interval. 
+     * Also no new chiasmata are generated in the arm with the interfering
+     * chiasma - "reason 3" in testChiasma2
      * 2d. the new chiasma is generated beyond the position of a previous
      * conflicting chiasma as discussed in 2c, but not conflicting with
      * an actual chiasma. Then the start of the exchange interval is
      * moved to that position, which is also the end of the interval -
      * again "reason 2" in testChiasma2
-     * Implementation: if the current arm has the chromosome head, then 
-     * this situation occurs if no conflicts with opposing chiasmata occur
-     * but the new chiasma is beyond exchangeEnd. Now exchangeLim[0] is set
-     * to exchangeLim[1] and armFinished is true. This is the same as what
-     * happens in situation 2a.
      * The reasoning behind method 2 (a, b, c, d) is that in order to generate
      * a chiasma, even if it conflicts, the pairing of the chromosomes in that
      * arm must already have been completed up to that point or up to the 
      * chromosome exchange point.
-     * QUESTION: does the chromosome exchange point cause interference like
+     * 3. (implemented in testChiasma13):
+     * Chiasmata are generated from the ends of each arm until the first
+     * conflict occurs. When this happens the crossing-over process is
+     * ended for the complete quadrivalent.
+     * This seems to be too stringent: the amount of recombination at the
+     * ends of the arms is about half that in a bivalent.
+     * 
+     * QUESTION: should the chromosome exchange point cause interference like
      * a chiasma? 
      * ANSWER: that depends on whether the interference is mainly caused by the
      * mechanical bending stress (then: yes) or mainly by the break/repair
@@ -342,11 +352,15 @@ public class Quadrivalent extends Multivalent {
      * not precisely known where the exchange point is (based on genetics it
      * can only be located to between the two nearest opposing recombination 
      * points), so interference cannot be modelled.
-     * 3. Chiasmata are generated from the ends of each arm until the first
-     * conflict occurs. When this happens the crossing-over process is
-     * ended for the complete quadrivalent.
-     * This seems to be too stringent: the amount of recombination at the
-     * ends of the arms is about half that in a bivalent.     
+     * Based on simulations with quadrimethod 2 (the default) and without 
+     * chiasma interference we see no difference in recombination in small
+     * intervals near head, center or tail of the chromosome, but in 200 CM
+     * and 400 cM chromosomes we see more recombination in long segments
+     * (from about 10% of total chromosome) around the center than at the ends.
+     * Perhaps this reflects the more pronounced unimodal distribution of
+     * the chromosome exchange point around the chromosome center in the
+     * longer chromosomes?
+     * 
      * @return a HaploStruct[] with 8 elements: the 8 recombined chromatids,
      * (the slots) still in the original order.
      * @throws Exception

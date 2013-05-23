@@ -20,6 +20,7 @@ import java.util.ArrayList;
  */
 public class Chromosome {
     PopulationData popdata;
+    Tools tools;
     String chromName;
     private double headPos;      //in Morgan; a chromosome doesn't have to start at position 0
     private double tailPos;        //in Morgan
@@ -57,6 +58,7 @@ public class Chromosome {
     public Chromosome(String chromName, double headPos, double tailPos,
             double centromerePos, PopulationData popdata) {
         this.popdata = popdata;
+        this.tools = popdata.tools;
         this.chromName = chromName;
         this.centromerePos = centromerePos;
         if (centromerePos<headPos) {
@@ -174,8 +176,9 @@ public class Chromosome {
         if (count>=100) zeroes += "0";
         if (count>=1000) zeroes += "0";
         DecimalFormat df = new DecimalFormat(zeroes);
-        double pos = head; count = 0;
-        Locus loc; count=0;
+        Locus loc; 
+        double pos = head;
+        count = 0;
         while (pos < tail+0.01*interval) {
             loc = new Locus(prefix + df.format(count), pos, null, popdata);
             try {

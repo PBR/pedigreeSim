@@ -5,7 +5,6 @@
 
 package PedigreeSim;
 
-import JSci.maths.statistics.BinomialDistribution;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -616,6 +615,7 @@ public class Individual extends Genotype {
                 calcGenohs(c,secondaryside);
                 while (2*bivalentcount + 4*quadrivalentcount < popdata.ploidy) {
                     if (2*bivalentcount + 4*quadrivalentcount == popdata.ploidy - 2) {
+                        //only 2 chromosomes left
                         getForcedBivalent();
                     } else {
                         //make a new Bivalent or Quadrivalent:
@@ -626,13 +626,7 @@ public class Individual extends Genotype {
 
             else {
                 //no naturalpairing but specified fraction Quadrivalents
-                int numQuadrivalents;
-                if (chr.getFracQuadrivalents()==0) numQuadrivalents = 0; else
-                if (chr.getFracQuadrivalents()==1) numQuadrivalents = popdata.ploidy/4; else {
-                    BinomialDistribution bindist = 
-                        new BinomialDistribution(popdata.ploidy/4,chr.getFracQuadrivalents());
-                    numQuadrivalents = (int)Math.round(bindist.inverse(rand.nextDouble()));
-                }    
+                int numQuadrivalents = chr.ranQuadri();
                 //now we know the number of quadrivalents to form 
                 //with this chromosome in this meiosis
                 int numBivalents = (popdata.ploidy-4*numQuadrivalents)/2;
@@ -792,6 +786,15 @@ public class Individual extends Genotype {
      * The approach is to use the pairedWith pairs at primaryside and to obtain
      * a new, still available partner for firsth at secondaryside taking 
      * the prefPairingProb into account.
+     * So:
+     * 1. we take the first still available haplostruct -> firsth
+     * 2. we take its partner based on pairedWith[promaryside] -> fourth
+     * 3. we get a new partner for firsth at secondaryside (not using
+     *    pairedWith[secomdaryside] taking preferential pairing into account
+     *    -> secondh
+     * 4. if secondh==fourth we have a bivalent,  else we take secondh's partner
+     *    based on pairedWith[primaryside] -> thirdh and we have a quadrivalent,
+     *    imposing pairing between thirdh and fourth at secondaryside
      * @param chr the chromosome number (needed because we have to access
      * genomenr again)
      * @param biAllowed if true either a Bivalent or a Quadrivalent is extracted,
@@ -839,11 +842,13 @@ public class Individual extends Genotype {
                 gnm = genomenr[chr][secondaryside][initorder[secondh]];
                 hIndex = genohs.get(gnm).indexOf(initorder[secondh]);
                 genohs.get(gnm).remove(hIndex);
+                hsdone[secondh] = true;
                 thirdh = pairedWith[primaryside][secondh];
                 assert(!hsdone[thirdh]);
                 gnm = genomenr[chr][secondaryside][initorder[thirdh]];
                 hIndex = genohs.get(gnm).indexOf(initorder[thirdh]);
                 genohs.get(gnm).remove(hIndex);
+                hsdone[thirdh] = true;
                 addQuadrivalent(firsth, secondh, thirdh, fourth);
             } //prefpairing, new quadrivalent
         } else {

@@ -325,7 +325,6 @@ public class Main {
         
         if (!err.isEmpty()) {
             System.out.println(err);
-            return;
         }
 
     } //simulate
@@ -1070,7 +1069,7 @@ public class Main {
         if (words.length==0 || words[0].charAt(0)==commentChar) {
             return new String[] {"",""};
         }
-        String key="", value="";
+        String key, value="";
         if (words[0].contains("=")) {
             String[] subwords = words[0].split("=",2);
             key = subwords[0];
@@ -1974,7 +1973,7 @@ public class Main {
                 }    
             } //printPubTables
             
-            out.println("Elapsed time\t"+(1.0*timertime/1e9)+"\tseconds");
+            out.println("\nElapsed time\t"+(1.0*timertime/1e9)+"\tseconds");
 
             out.flush();
         } catch (Exception ex) {

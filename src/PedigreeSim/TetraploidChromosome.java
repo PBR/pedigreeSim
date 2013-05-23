@@ -5,6 +5,8 @@
 
 package PedigreeSim;
 
+import JSci.maths.statistics.BinomialDistribution;
+
 /**
  * TetraploidChromosome extends Chromosome with two fields:
  * prefPairingProb and fracQuadrivalents
@@ -72,6 +74,7 @@ public class TetraploidChromosome extends Chromosome {
         this.prefPairingProb = prefPairingProb;
         this.fracQuadrivalents = fracQuadrivalents;
         this.quadrivalentConfigCount = new int[1 + popdata.ploidy/4];
+        setCumulBinomial();
     }
 
     public double getFracQuadrivalents() {
@@ -82,5 +85,35 @@ public class TetraploidChromosome extends Chromosome {
         return prefPairingProb;
     }
 
+    // cumulBinomial and setCumulBinomial are needed for ranQuadri:
+    private double[] cumulBinomial;
+
+    private void setCumulBinomial() {
+        BinomialDistribution bindist =
+                new BinomialDistribution(popdata.ploidy/4, fracQuadrivalents);
+        cumulBinomial = new double[popdata.ploidy/4];
+        for (int i=0; i<cumulBinomial.length; i++) {
+            cumulBinomial[i]=bindist.cumulative(i);
+        }
+        //TODO remove debug code:
+        //System.out.println("chrom "+this.getChromName()+"\tfracQuadri="+fracQuadrivalents);
+        //for (int i=0; i<cumulBinomial.length; i++) System.out.println(i+"\t"+cumulBinomial[i]);
+    }
+
+    /**
+     * ranQuadri determines a random number of Quadrivalents to be generated
+     * given the ploidy of the population and fracQuadrivalents.
+     * This kludge is needed because BinomialDistribution.inverse is flawed
+     * (and it may be faster too for realistic ploidy values).
+     * @return a random number (int) taken from a binomial distribution
+     * with n = max. possible number of quadrivalents (=ploidy/4)
+     * and p = fracQuadrivalents
+     */
+    int ranQuadri() {
+        double p = tools.rand.nextDouble();
+        int i = 0;
+        while (i<cumulBinomial.length && cumulBinomial[i]<p) i++;
+        return i;
+    }
 
 }

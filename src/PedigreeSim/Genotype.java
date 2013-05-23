@@ -5,8 +5,8 @@
 
 package PedigreeSim;
 
-import java.util.ArrayList;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.TreeSet;
 

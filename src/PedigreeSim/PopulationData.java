@@ -240,7 +240,7 @@ public class PopulationData {
             throw new Exception("Error in addChromosome: chrom==null");
         }
         if ((ploidy==2 && chrom.getClass().equals(TetraploidChromosome.class)) ||
-            (ploidy==4 && !chrom.getClass().equals(TetraploidChromosome.class))) {
+            (ploidy>2 && !chrom.getClass().equals(TetraploidChromosome.class))) {
             throw new Exception("Error in addChromosome: class of chrom does not match ploidy");
         }
         if (!this.equals(chrom.getPopdata())) {

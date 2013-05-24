@@ -1211,9 +1211,9 @@ public class Main {
     } //simulateHaploStructs
 
     public static void testMeiosis(PopulationData popdata, String fName, double gammaFactor) {
-        boolean printPubTables = true; //works only with a specific set of chromosomes and maps,
+        boolean printPubTables = false; //works only with a specific set of chromosomes and maps,
             //therefore not a user-selectable parameter. 
-            //Set to false in public distribution
+            //TODO Set to false in public distribution
         try {
             
             //preparation:

@@ -300,12 +300,22 @@ public class Main {
                         try {
                             int whichAllele;
                             if (founderGenotypes) {
+                                //actual alleles present, write file with actual allele genotypes:
                                 writeGenotypesFile(parMap.get(strOutput)+"_genotypes.dat",false,popdata);
                                 whichAllele = MAX_ALLELE;
                             }
                             else whichAllele = 0;
+                            //write file with founderallele genotypes:
                             writeGenotypesFile(parMap.get(strOutput)+"_founderalleles.dat",true,popdata);
+                            //write allele dosage file for either the MAX_ALLELE is actual alleles are present,
+                            //and else for founderallele 0:
                             writeAlleledoseFile(parMap.get(strOutput)+"_alleledose.dat",whichAllele,founderGenotypes,popdata);
+                            //write allAlleledose.dat:
+                            //- for all actual alleles only if some or all loci have more than 2 alleles
+                            //- or for all founder alleles
+                            if (!founderGenotypes || popdata.getMaxAlleleCount()>2) {
+                                writeAllAlleledoseFile(parMap.get(strOutput)+"_allAlleledose.dat",founderGenotypes,popdata);
+                            }    
                         } catch (Exception ex) {
                             err = "Error writing files: "+ex.getMessage();
                         }
@@ -798,20 +808,23 @@ public class Main {
         out.flush();
     } //writeGenotypesFile
 
-    public static final int MIN_ALLELE=0;
-    public static final int MAX_ALLELE=1;
+    public static final int MIN_ALLELE=-1;
+    public static final int MAX_ALLELE=-2;
 
     /**
-     * writeAlleleDoseFile:
+     * writeAlleledoseFile:
      * writes a tab-separated text file with for each individual and each
      * locus on the map the dosage (number of copies) of the allele specified
      * in whichAllele
      * @param fName the file name; an existing file will be overwritten
      * @param whichAllele specifies for which of the alleles the dosage will
-     * be written. If actualAlleles is true  and the value if whichAllele
+     * be written. If actualAlleles is true and the value of whichAllele
      * is MIN_ALLELE or MAX_ALLELE the allele with
      * the lowest or highest allele name will be counted, else the allele
-     * corresponding with founder allele 0 will be counted. If actualAlleles
+     * corresponding with founder allele whichAllele will be counted (if
+     * whichAllele not in 0..popdata.founderAlleleCount-1 the allele
+     * corresponding with founderAllele 0 will be counted). 
+     * If actualAlleles
      * is false the founder allele corresponding to whichAllele is counted
      * (and if whichAllele is outside 0 ... popdata.founderAlleleCount-1
      * the counts will all be 0)
@@ -841,29 +854,34 @@ public class Main {
             for (int loc=0; loc<loci.size(); loc++) {
                 out.print(loci.get(loc).getLocusName());
                 double locpos = loci.get(loc).getPosition();
-                String matchName="";
+                String matchName = "";
                 if (actualAlleles) {
                     switch (whichAllele) {
                         case MIN_ALLELE:
                              matchName = loci.get(loc).getMinAlleleName(); break;
                         case MAX_ALLELE:
                              matchName = loci.get(loc).getMaxAlleleName(); break;
-                        default: //FOUNDER0_ALLELE
-                             matchName = loci.get(loc).getAlleleName(0); break;
-                    }
+                        default: {
+                            if (whichAllele<0 || 
+                                    whichAllele>=popdata.founderAlleleCount) {
+                                whichAllele = 0;
+                            }
+                            matchName = loci.get(loc).getAlleleName(whichAllele); 
+                        } break;
+                    }    
                 }
                 for (int i=0; i<popdata.indivCount(); i++) {
                     int dose = 0;
                     if (actualAlleles) {
                         String[] indall = popdata.getIndiv(i).getLocusAllele(c, loc);
                         for (int h=0; h<popdata.ploidy; h++) {
-                            if (indall[h].equals(matchName)) dose++;
+                            if (matchName.equals(indall[h])) dose++;
                         }
                     }
-                    else { // count founder allele 0 instead of actual allele
+                    else { // count founder allele whichAllele instead of actual allele
+                        int[] indall = popdata.getIndiv(i).getFounderAlleles(c, locpos);
                         for (int h=0; h<popdata.ploidy; h++) {
-                            if (popdata.getIndiv(i).getHaploStruct(c,h).getFounderAt(locpos)
-                                    == whichAllele) dose++;
+                            if (whichAllele==indall[h]) dose++;
                         }
                     }
                     out.print("\t" + dose);
@@ -873,6 +891,73 @@ public class Main {
         }
         out.flush();
     } //writeAlleledoseFile
+
+    /**
+     * writeAllAlleledoseFile:
+     * writes a tab-separated text file with for each individual and each
+     * locus on the map the dosage (number of copies) of the allele specified
+     * in whichAllele
+     * @param fName the file name; an existing file will be overwritten
+     * @param actualAlleles if true the counting is based on the actual
+     * alleles corresponding to each founder allele; if false it is based
+     * on the founder alleles directly 
+     * @param popdata
+     * @throws IOException
+     * @throws Exception 
+     */
+    public static void writeAllAlleledoseFile(String fName, 
+            boolean actualAlleles, PopulationData popdata)
+            throws IOException, Exception {
+        System.out.println("write file "+fName);
+        PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(fName)));
+        // write header line:
+        out.print("marker\tallele");
+        for (int i=0; i<popdata.indivCount(); i++) {
+            out.print("\t"+ popdata.getIndiv(i).getIndivName());
+        }
+        out.println();
+        for (int c=0; c<popdata.chromCount(); c++) {
+            Chromosome chrom = popdata.getChrom(c);
+            System.out.println("chrom "+chrom.getChromName());
+            ArrayList<Locus> loci = chrom.getLocus();
+            for (int loc=0; loc<loci.size(); loc++) {
+                double locpos = loci.get(loc).getPosition();
+                String matchName;
+                if (actualAlleles) {
+                    String[] alleles = loci.get(loc).getUniqueAlleleNames();
+                    for (int a=0; a<alleles.length; a++) {
+                        matchName = alleles[a];
+                        out.print(loci.get(loc).getLocusName()+"\t"+matchName);  
+                        for (int i=0; i<popdata.indivCount(); i++) {
+                            int dose = 0;
+                            String[] indall = popdata.getIndiv(i).getLocusAllele(c, loc);
+                            for (int h=0; h<popdata.ploidy; h++) {
+                                if (matchName.equals(indall[h])) dose++;
+                            }
+                            out.print("\t" + dose);
+                        }
+                        out.println();
+                    }
+                }
+                else {
+                    //not actualAlleles, count founder alleles
+                    for (int a=0; a<popdata.founderAlleleCount; a++) {
+                        out.print(loci.get(loc).getLocusName()+"\t"+a);  
+                        for (int i=0; i<popdata.indivCount(); i++) {
+                            int dose = 0;
+                            int[] indall = popdata.getIndiv(i).getFounderAlleles(c, locpos);
+                            for (int h=0; h<popdata.ploidy; h++) {
+                                if (a==indall[h]) dose++;
+                            }
+                            out.print("\t" + dose);
+                        }
+                        out.println();
+                    }
+                }
+            } //for loc
+        } // for c
+        out.flush();
+    } //writeAllAlleledoseFile
 
     /**
      * 2 files store the HaploStructs of the whole population:

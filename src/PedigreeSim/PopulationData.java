@@ -463,4 +463,16 @@ public class PopulationData {
         return result;
     } //popdataSettings
 
+    public int getMaxAlleleCount() {
+        int result = 0;
+        for (Chromosome chrom : getChromosome()) {
+            if (chrom.getLocus() != null) for (Locus loc: chrom.getLocus()) {
+                if (loc.getAlleleCount() > result) {
+                    result = loc.getAlleleCount();
+                }
+            }
+        }
+        return result;
+    }
+
 }

@@ -6,6 +6,7 @@
 package PedigreeSim;
 
 import java.text.DecimalFormat;
+import java.util.Arrays;
 
 /**
  * Locus stores the general attributes of alocus: name, position
@@ -17,9 +18,8 @@ public class Locus {
     private String locusName;
     protected double position;   //in Morgan!
     private String[] alleleName; //one for each founder allele; duplicates are allowed
-    private String minAlleleName=""; //the alphabetically last allele name
-    private String maxAlleleName=""; //the alphabetically last allele name
-    private int alleleCount=-1; //the number of different allele names; -1 indicates: not determined yet
+    private String[] uniqueAlleleNames; //only the unique allele names, in alphabetical order
+    private int alleleCount=-1; //the number of unique allele names; -1 indicates: not determined yet
 
     public Locus(String locusName, double position, String[] alleleNames,
             PopulationData popdata) {
@@ -87,8 +87,7 @@ public class Locus {
      */
     private void countAlleleNames() {
         alleleCount=0;
-        minAlleleName="";
-        maxAlleleName="";
+        String[] tmp = new String[alleleName.length];
         for (int i=0; i<alleleName.length; i++) {
             int j = i-1;
             while (j>=0 && !alleleName[i].equals(alleleName[j])) {
@@ -96,29 +95,25 @@ public class Locus {
             }
             if (j<0) {
                 //new name found
-                alleleCount++;
-                if (alleleName[i].compareTo(maxAlleleName)>0) {
-                    maxAlleleName = alleleName[i];
-                }  
-                if (alleleName[i].compareTo(minAlleleName)<0) {
-                    minAlleleName = alleleName[i];
-                } 
+                tmp[alleleCount++] = alleleName[i];
             }
         } //for i
+        uniqueAlleleNames = Arrays.copyOfRange(tmp, 0, alleleCount);
+        Arrays.sort(uniqueAlleleNames);
     }
 
     public String getMinAlleleName() {
         if (alleleCount==-1) {
             countAlleleNames();
         }
-        return minAlleleName;
+        return uniqueAlleleNames[0];
     }
 
     public String getMaxAlleleName() {
         if (alleleCount==-1) {
             countAlleleNames();
         }
-        return maxAlleleName;
+        return uniqueAlleleNames[alleleCount-1];
     }
 
     public int getAlleleCount() {
@@ -126,6 +121,13 @@ public class Locus {
             countAlleleNames();
         }
         return alleleCount;
+    }
+    
+    public String[] getUniqueAlleleNames() {
+        if (alleleCount==-1) {
+            countAlleleNames();
+        }
+        return uniqueAlleleNames;
     }
 
 }

@@ -123,6 +123,22 @@ public class Genotype {
     }
 
     /**
+     * getLocusAllele returns a String array with the getPloidy() names
+     * of the alleles in this Genotype at the specified chromosome and locus
+     * @param c the chromosome number
+     * @param pos position
+     * @return
+     * @throws Exception 
+     */
+    public int[] getFounderAlleles(int c, double pos) throws Exception {
+        int[] founderAlleles = new int[getPloidy()];
+        for (int i=0; i<founderAlleles.length; i++) {
+            founderAlleles[i] = haplostruct[c][i].getFounderAt(pos);
+        }
+        return founderAlleles;
+    }
+
+    /**
      * @param c the chromosome number
      * @param founder if true, homozygosity for founder alleles will be
      * checked, else homozygosity for actual (observed) alleles.

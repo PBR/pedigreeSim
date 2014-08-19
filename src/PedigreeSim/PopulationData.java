@@ -417,11 +417,9 @@ public class PopulationData {
             //System.out.println(i+": "+ped.get(i)[0]+" "+ped.get(i)[1]+" "+ped.get(i)[2]);
             if (ped.get(i)[1].equals(missing)) {
                 //add founder with founderalleles
-                int[] fAll = new int[ploidy];
-                for (int p=0; p<ploidy; p++) {
-                    fAll[p] = founderAlleleCount++;
-                }
-                try { individual.add(new Individual(ped.get(i)[0], fAll, this));
+                try {
+                    individual.add(new Individual(ped.get(i)[0], this));
+                    founderAlleleCount += ploidy;
                 } catch (Exception ex) { return ex.getMessage(); }
             }
             else {

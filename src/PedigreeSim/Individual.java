@@ -25,54 +25,10 @@ public class Individual extends Genotype {
     private Individual[] parents;
 
     /**
-     * prefPairingConfig:
-     * used only if popdata.ploidy==4. In that case indicates the situation
-     * for each chromosome with respect to preferential pairing.
-     * NOTE that if preferential pairing occurs, the even and the odd
-     * founder alleles are considered as the two homeologous genomes.
-     * int[] with the index referring to the chromosome; contents are:
-     * -1 no preferential pairing possible at either end (diploid, or
-     *    tetraploid if not one odd and one even pair of founder alleles
-     *    at either end)
-     * 0  preferential pairing possible at chromosome head only
-     * 1  preferential pairing possible at chromosome tail only
-     * 2  preferential pairing possible at both ends, pairing matches
-     *    (at both ends either 01/23 or 02/13, where odd and even may be
-     *     the same or reversed in both ends of all chromosomes)
-     * 3  preferential pairing possible at both end, pairing does not match
-     *    (i.e. at one end the pairing is 01/23, at the other 02/13)
-     */
-    //private int[] prefPairingConfig;
-
-    /**
-     * prefPairing:
-     * array indicating which chromosome ends may form preferential pairs
-     * first index refers to the chromosome
-     * second index is 0/1 for chromosome head or tail
-     * The content is a number from 0 to 3 indicating the preferential pairing:
-     * -1 = no pref pairing: 3 or 4 haplostructs have same type (even or odd)
-     *  0 = chrom 0/1 vs chrom 2/3
-     *  1 = chrom 0/2 vs chrom 1/3
-     *  2 = chrom 0/3 vs chrom 1/2
-     * (i.e. the content is (partner of chrom 0)-1, or -1 if no pairing)
-     * The array always exists
-     */
-    //int[][] prefPairing;
-
-    /**
-     * pairs[i-1] list the chromosomes indicated by prefPairing i:
-     * the first two numbers are the chromosomes in the first pair,
-     * the last two are the chromosomes in the second pair
-     */
-    //static int[][]pairs = new int[][] { {0,1,2,3},{0,2,1,3},{0,3,1,2} };
-
-    /**
-     * Class ChromConfig is only relevant for tetraploid individuals.
-     * It describes for one chromosome in one meiosis
-     * - if the four homologs form a Quadrivalent or two Bivalents
-     * - the order of the four homologs:
-     *   for Bivalents the first two form the first Bivalent, the second two the second
-     *   for a Quadrivalent: the sequence in the cross-type Quadrivalent
+     * Class ChromConfig describes for one chromosome in one meiosis
+     * - quad: how many Quadrivalents are formed
+     * - chromseq: the order of the homologs: the first 4*quad homologs
+     *   form the quadrivalents, the remainder form bivalents
      */
     static class ChromConfig {
         int quad; //the number of quadrivalents (was boolean)
@@ -117,41 +73,37 @@ public class Individual extends Genotype {
      * possible, else less preferential pairs are possible.
      */
     int[][] possiblePairCount;
-    
+
 
     /**
-     * Constructor to create a founder: its [chromCount][ploidy] HaploStructs
-     * each have only one segment, with the given founderAlleles and its parents
-     * are set to {null,null}
+     * Constructor to create a basic individual with only a name;
+     * without parents, so it is a founder, and without haplostruct
      * @param name
      * @param popdata
-     * @param founderAlleles array of <ploidy> integers
-     * @throws Exception 
+     * @throws Exception
      */
-    public Individual(String name, int[] founderAlleles,
-            PopulationData popdata)
-            throws Exception {
+    public Individual(String name, PopulationData popdata) throws Exception  {
         super(popdata);
         this.tools = popdata.tools;
         this.rand = popdata.tools.rand;
         this.indivName = name;
-        if (founderAlleles.length !=  popdata.ploidy) {
-            throw new Exception("Individual constructor: length of founderAlleles incorrect");
-        }
-        else {
-            haplostruct = new HaploStruct[popdata.chromCount()][popdata.ploidy];
-            for (int p=0; p<popdata.ploidy; p++) {
-                for (int c=0; c<popdata.chromCount(); c++) {
-                    try {
-                        haplostruct[c][p] = new HaploStruct(popdata.getChrom(c), founderAlleles[p]);
-                    } catch (Exception ex) {
-                        Logger.getLogger(Individual.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-            //calcPrefPairing();
-        }
         this.parents = new Individual[] {null, null};
+    }
+
+    /**
+     * Constructor to create a founder: its [chromCount][ploidy] HaploStructs
+     * each have only one segment, with the founderalleles  =
+     * (lastfounderallele+1) .. (lastfounderallele+popdata.ploidy)
+     * and its parents are set to {null,null}
+     * @param name
+     * @param lastfounderallele integer, the last founder allele used up to now
+     * @param popdata
+     * @throws Exception
+     */
+    public Individual(String name, int lastfounderallele,
+            PopulationData popdata) throws Exception  {
+        this(name, popdata);
+        this.setHaploStruct(Individual.calcFounderHaplostruct(lastfounderallele, popdata));
     }
 
     /**
@@ -162,35 +114,12 @@ public class Individual extends Genotype {
      * @param popdata
      * @throws Exception
      */
-    public Individual(String name, HaploStruct[][] haplostruct, 
+    public Individual(String name, HaploStruct[][] haplostruct,
             Individual[] parents, PopulationData popdata)
             throws Exception {
-        this(name, haplostruct, popdata);
+        this(name, popdata);
         setParents(parents);
-    }
-
-    /**
-     * Constructor specifying the haplostruct but no parents (these are set
-     * to {null,null}).
-     * This would be the normal constructor to use when reading haplostructs
-     * from file, for generating genotypes; the parents are then not
-     * relevant.
-     * @param name
-     * @param haplostruct
-     * @param popdata
-     * @throws Exception
-     */
-    public Individual(String name, HaploStruct[][] haplostruct,
-        PopulationData popdata)
-        throws Exception {
-        super(popdata);
-        if (name==null || name.isEmpty()) {
-            throw new Exception("Individual constructor: name  empty");
-        }
-        this.indivName = name;
         setHaploStruct(haplostruct);
-        //calcPrefPairing();
-        this.parents = new Individual[] {null,null};
     }
 
     /**
@@ -215,11 +144,35 @@ public class Individual extends Genotype {
     protected final void setHaploStruct(HaploStruct[][] haplostruct) throws Exception {
         if (checkHaploStruct(popdata.ploidy, haplostruct)) {
             this.haplostruct = haplostruct;
-            //calcPrefPairing();
         } else {
             throw new Exception("Individual setHaploStruct: invalid haplostruct");
         }
     }
+
+    /**
+     * calcFounderHaplostruct generates the haplostructs for a new founder
+     * (and in the process assigns <ploidy> new founderalleles)
+     * @param lastfounderallele the last founder allele assigned up to now
+     * @param popdata
+     * @return
+     */
+    public static HaploStruct[][] calcFounderHaplostruct(int lastfounderallele,
+            PopulationData popdata) {
+        HaploStruct[][] haplostruct;
+        haplostruct = new HaploStruct[popdata.chromCount()][popdata.ploidy];
+        for (int p=0; p<popdata.ploidy; p++) {
+            lastfounderallele++;
+            for (int c=0; c<popdata.chromCount(); c++) {
+                try {
+                    haplostruct[c][p] = new HaploStruct(popdata.getChrom(c),
+                            lastfounderallele);
+                } catch (Exception ex) {
+                    Logger.getLogger(Individual.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        return(haplostruct);
+    } //calcFounderHaplostruct
 
     public String getIndivName() {
         return indivName;

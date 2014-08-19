@@ -169,6 +169,8 @@ public class Main {
             pedList = new ArrayList<String[]>();
             pedList.add(TestParent);
             err = popdata.createPopulation(pedList);
+            if (err.isEmpty()) popdata.getIndiv(0).setHaploStruct(
+                    Individual.calcFounderHaplostruct(-1, popdata));
             if (parMap.containsKey(strPopsize)) {
                 popdata.testMeioseCount =
                         Integer.parseInt(parMap.get(strPopsize));
@@ -258,20 +260,33 @@ public class Main {
             } //if test
             else { //normal simulation
 
-                //read or simulate&write haplostructs:
+                //read and/or simulate&write haplostructs:
+                int maxfounderallele = -1;
 
                 if (parMap.containsKey(strHaplostruct)) {
                     try {
-                        readHaploStructFiles(parMap.get(strHaplostruct),popdata);
+                        maxfounderallele =
+                                readHaploStructFiles(parMap.get(strHaplostruct),
+                                                     popdata);
                     } catch (Exception ex) {
                         System.out.println(ex.getMessage());
                         return;
                     }
                 }
-                else { //no Haplostruct files, simulate haplostrucs
-                    simulateHaploStructs(popdata);
-                    writeHaploStructFiles(parMap.get(strOutput),popdata);
-                }
+                /* three cases:
+                 * some individuals in haplostructs but not in pedigree: error
+                 * some individuals in pedigree but not in haplostructs: simulate
+                 *      new haplostructs for those (also in the standard case
+                 *      where no haplostructs files provided: then all pedigree
+                 *      individuals are simulated)
+                 * individuals in haplostructs match those in pedigree exactly:
+                 *      no simulation of haplostructs needed
+                 * In both last cases actual genotypes are generated if
+                 * map and founder genotypes available
+                 */
+                //simulate new haplostruct for pedigree
+                simulateHaploStructs(popdata, maxfounderallele);
+                writeHaploStructFiles(parMap.get(strOutput),popdata);
                 if (!err.isEmpty()) {
                     System.out.println(err);
                     return;
@@ -373,8 +388,11 @@ public class Main {
     private static String strF1 = "F1"; //F1 population from 2 heterozygous parents
     private static String strF2 = "F2"; //F2 population from 2 heterozygous perents
     private static String strBC = "BC"; //BC population from 2 heterozygous parents
-    private static String strS1 = "S1"; //progeny from selfing one heterozygous parent
-                                       //(equivalent to F2 from two homozygous parents)
+    private static String strS1 = "S1"; /*progeny from selfing one heterozygous parent
+                                         *(equivalent to F2 from two homozygous parents
+                                         * for observed alleles, but not for founder
+                                         * alleles)
+                                         */
     
     public static HashMap<String, String> readParameterFile(File parFile)  {
         if (parFile==null) return null;
@@ -413,7 +431,8 @@ public class Main {
                  ( keyval[0].equals(strPoptype) &&
                     (keyval[1].equals(strF1) ||
                      keyval[1].equals(strF2) ||
-                     keyval[1].equals(strBC)) )
+                     keyval[1].equals(strBC) ||
+                     keyval[1].equals(strS1)) ) //correction of Fabian Grandke
                      ||
                  ( (keyval[0].equals(strPopsize) ||
                     keyval[0].equals(strTestIter))&&
@@ -581,11 +600,11 @@ public class Main {
     /**
      * readPedigreeFile
      * @param fName
-     * @return an ArrayList<String[] of which the first item is an error
+     * @return an ArrayList<String[]> of which the first item is an error
      * @throws IOException Only if readline doesn't work, else error message
      * message ("" if no error) and all following items have 3 Strings:
-     * individual name and names of parent1 and parent 2 (parents should be
-     * strMissing is individual is founder) 
+     * individual name and names of parent1 and parent 2 (both parents should be
+     * strMissing if individual is founder)
      */
     public static ArrayList<String[]> readPedigreeFile(String fName)
              throws IOException {
@@ -630,7 +649,7 @@ public class Main {
             }
         } while (true);
         return result;
-    }
+    } //readPedigreeFile
 
     public static final char HOMOLOG_SEPARATOR = '_';
 
@@ -642,7 +661,7 @@ public class Main {
             if (p != homolog) return false;
             return true;
         } catch (Exception ex) {return false;}
-    }
+    } //testGenotypesfileCaption
 
     public static void readFounderGenotypesFile(String fName, PopulationData popdata)
             throws FileNotFoundException, IOException, Exception {
@@ -1005,11 +1024,10 @@ public class Main {
         }
         hsa.flush();
         hsb.flush();
-    }
+    } //writeHaploStructFiles
 
-    public static void readHaploStructFiles(String fName, PopulationData popdata)
+    public static int readHaploStructFiles(String fName, PopulationData popdata)
             throws Exception {
-        //popdata.clearAllHaploStruct();
         //advance information: chromosomes(name, length etc; ploidy; pedigree
         // hsa has the info on individual and chromosome, and the sequences of founder alleles:
         BufferedReader hsa = new BufferedReader(new FileReader(new File(fName+".hsa")));
@@ -1023,6 +1041,7 @@ public class Main {
         }
         String s;
         int line = 0;
+        int maxfounderallele = -1;
         String iName = "";
         HaploStruct[][] hs = null;
         do {
@@ -1077,11 +1096,14 @@ public class Main {
                 founderAllele = Integer.valueOf(words[3]);
             } catch (Exception ex) {}
             if (founderAllele<0 || founderAllele>=popdata.founderAlleleCount ) {
-                throw new Exception(fName+".hsa, line "+(line+1)+": invalid founder allele '"+words[3]+"'");
+                throw new Exception(fName+".hsa, line "+(line+1)+
+                        ": invalid founder allele '"+words[3]+"'");
             }
+            if (founderAllele > maxfounderallele) maxfounderallele = founderAllele;
             String[] hsbwords = Tools.readWords(hsbline);
             if (hsbwords.length != words.length-4) {
-                throw new Exception(fName+".hsa/hsb, line "+(line+1)+": number of items in both files don't match");
+                throw new Exception(fName+".hsa/hsb, line "+(line+1)+
+                        ": number of items in both files don't match");
             }
             HaploStruct hast = new HaploStruct(chrom, founderAllele);
             //repeat reading pairs of values from hsa and hsb:
@@ -1091,7 +1113,8 @@ public class Main {
                 if (words[4+r].equals(popdata.missing)) {
                     done = true;
                     if (!hsbwords[r].equals(popdata.missing)) {
-                        throw new Exception(fName+".hsa/hsb, line "+(line+1)+": number of non-missing items in both files don't match");
+                        throw new Exception(fName+".hsa/hsb, line "+(line+1)+
+                                ": number of non-missing items in both files don't match");
                     }
                 }
                 else {
@@ -1100,14 +1123,17 @@ public class Main {
                         founderAllele = Integer.valueOf(words[r+4]);
                     } catch (Exception ex) {}
                     if (founderAllele<0 || founderAllele>=popdata.founderAlleleCount ) {
-                        throw new Exception(fName+".hsa, line "+(line+1)+": invalid founder allele '"+words[r+4]+"'");
+                        throw new Exception(fName+".hsa, line "+(line+1)+
+                                ": invalid founder allele '"+words[r+4]+"'");
                     }
+                    if (founderAllele > maxfounderallele) maxfounderallele = founderAllele;
                     double recpos = Double.NaN;
                     try {
                         recpos = Double.valueOf(hsbwords[r]);
                     } catch (Exception ex) {}
                     if (Double.isNaN(recpos)) {
-                        throw new Exception(fName+".hsa/hsb, line "+(line+1)+": number of non-missing items in both files don't match");
+                        throw new Exception(fName+".hsa/hsb, line "+(line+1)+
+                                ": number of non-missing items in both files don't match");
                     }
                     hast.addSegment(recpos/100.0, founderAllele); //cM to Morgan
                 }
@@ -1120,9 +1146,11 @@ public class Main {
                 popdata.getIndiv(iName).setHaploStruct(hs);
             }
         } while(true);
-        if (line != popdata.indivCount()*popdata.chromCount()*popdata.ploidy) {
-            throw new Exception(fName+".hsa/hsb: number of lines incorrect");
-        }
+        //if (line != popdata.indivCount()*popdata.chromCount()*popdata.ploidy) {
+        //    throw new Exception(fName+".hsa/hsb: number of lines incorrect");
+        //}
+        //we now allow new individuals in pedigree that don't occur in haplostruct files
+        return(maxfounderallele);
     } //readHaploStructFiles
 
     public static File getParameterFile(String[] args) {
@@ -1187,20 +1215,20 @@ public class Main {
         try {
             return Integer.parseInt(s)>0;
         } catch (Exception ex) { return false; }
-    }
+    } //isPositiveInteger
 
     public static boolean isInteger(String s) {
         try {
             return Integer.parseInt(s)<=Integer.MAX_VALUE;
         } catch (Exception ex) { return false; }
-    }
+    } //isInteger
 
     public static boolean isProbability(String s) {
         try {
             double d = Double.parseDouble(s);
             return d>=0.0 && d<=1.0;
         } catch (Exception ex) { return false; }
-    }
+    } //isProbability
 
     public static boolean isValidPloidy(String s) {
         try {
@@ -1215,12 +1243,12 @@ public class Main {
         return s.equals("0") || s.equals("1") ||
                 s.equals("FALSE") || s.equals("TRUE") ||
                 s.equals("NO") || s.equals("YES");
-    }
+    } //isValidPloidy
 
     public static boolean toBoolean(String s) {
         s = s.toUpperCase();
         return s.equals("1") || s.equals("TRUE") || s.equals("YES");
-    }
+    } //toBoolean
 
     /**
      * canCreateFile: this will delete an existing file with this name,
@@ -1240,7 +1268,7 @@ public class Main {
             }
         } catch (Exception ex) { }
         return result;
-    }
+    } //canCreateFile
 
     public static ArrayList<String[]> generateStandardPopulation(String popType,
             int popSize, String missing) {
@@ -1280,8 +1308,12 @@ public class Main {
         return pedList;
     } //generateStandardPopulation
 
-    public static void simulateHaploStructs(PopulationData popdata) throws Exception {
+    public static void simulateHaploStructs(PopulationData popdata, int maxfounderallele)
+            throws Exception {
         for (Individual ind: popdata.getIndividual()) {
+            /* this is now changed as we allow to read haplostructs for
+             * some or all individuals
+             *
             //check is all is well:
             if ( ind.isFounder() && ind.getAllHaploStruct()==null) {
                 throw new Exception("Founder was created without haplostruct");
@@ -1291,6 +1323,16 @@ public class Main {
             }
             if (!ind.isFounder()) {
                 ind.setHaploStruct(ind.getParents()[0].mating(ind.getParents()[1]));
+            }
+            */
+            if (ind.getAllHaploStruct()==null) {
+                if (ind.isFounder()) {
+                    ind.setHaploStruct(Individual.calcFounderHaplostruct(
+                            maxfounderallele, popdata));
+                    maxfounderallele += popdata.ploidy;
+                } else {
+                    ind.setHaploStruct(ind.getParents()[0].mating(ind.getParents()[1]));
+                }
             }
         }
     } //simulateHaploStructs

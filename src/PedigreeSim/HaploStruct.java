@@ -56,7 +56,7 @@ public class HaploStruct implements Cloneable {
             copy.recombPos = new ArrayList<Double>();
             copy.founder = new ArrayList<Integer>();
             for (int i=0; i<founder.size(); i++) {
-                //conversion to doublevalue en intvalue to force a new
+                //conversion to doublevalue and intvalue to force a new
                 //Double or Integer object
                 copy.recombPos.add(recombPos.get(i).doubleValue());
                 copy.founder.add(founder.get(i).intValue());

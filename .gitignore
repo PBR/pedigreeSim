@@ -1,6 +1,21 @@
 *.class
-
-# Package Files #
 *.jar
 *.war
 *.ear
+
+manifest.mf
+build.xml
+*.bak
+*.docx
+*.lnk
+*.pdf
+*.zip
+!PedigreeSim_manual.docx
+
+build/
+dist/
+nbproject/
+Data/
+Rscripts/
+
+.gitignore

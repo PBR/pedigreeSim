@@ -6,6 +6,17 @@
 package PedigreeSim;
 
 import JSci.maths.statistics.BinomialDistribution;
+/** NOTE about the JSci library:
+ * JScience - Java(TM) Tools and Libraries for the Advancement of Sciences.
+ * Copyright (C) 2006 - JScience (http://jscience.org/)
+ * All rights reserved.
+ * From this library we use only sci-core.jar
+ * In Netbeans (8.1) this must be attached by using
+ * Tools - Libraries - New library; 
+ * Library Name = sci-core, 
+ * Library Type = Class Libraries
+ * Add JAR/folder: select the sci-core.jar file
+ */
 
 /**
  * TetraploidChromosome extends Chromosome with two fields:

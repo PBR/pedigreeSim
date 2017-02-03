@@ -653,11 +653,14 @@ public class Main {
 
     public static final char HOMOLOG_SEPARATOR = '_';
 
-    private static boolean testGenotypesfileCaption(String s, int homolog) {
+    private static boolean testGenotypesfileCaption(String s, 
+            int hspos, Individual ind, int homolog) {
         if (s==null || s.length()<3) return false;
-        if (s.charAt(s.length()-2) != HOMOLOG_SEPARATOR) return false;
+        if (s.charAt(hspos) != HOMOLOG_SEPARATOR ||
+                !s.substring(0, hspos).equals(ind.getIndivName()))
+            return false;
         try {
-            int p = Integer.parseInt(s.substring(s.length()-1));
+            int p = Integer.parseInt(s.substring(hspos + 1));
             if (p != homolog) return false;
             return true;
         } catch (Exception ex) {return false;}
@@ -695,19 +698,16 @@ public class Main {
                                    //founder in order of header
         for (int i=0; i<nf; i++) {
             String iname = words[1+i*popdata.ploidy];
-            if (!testGenotypesfileCaption(iname,1)) {
-                throw new Exception(iname+" doesn't end on '"+HOMOLOG_SEPARATOR+"1'");
-            }
-            iname = iname.substring(0,iname.length()-2);
-            Individual ind = popdata.getIndiv(iname);
+            int hspos = iname.lastIndexOf(HOMOLOG_SEPARATOR);
+            Individual ind = 
+                    popdata.getIndiv(iname.substring(0, hspos));
             if (ind==null || ind.getParents()[0]!=null) {
-                throw new Exception(iname+" is not a founder");
+                throw new Exception(iname.substring(0, hspos)+" is not a founder");
             }
             indnr[i] = popdata.getIndividual().indexOf(ind);
-            for (int hom=1; hom<popdata.ploidy; hom++) { //skip hom==0: already done
+            for (int hom=0; hom<popdata.ploidy; hom++) { 
                 iname = words[1+i*popdata.ploidy+hom];
-                if (!testGenotypesfileCaption(iname,hom+1) ||
-                    !iname.substring(0,iname.length()-2).equals(ind.getIndivName()) ) {
+                if (!testGenotypesfileCaption(iname, hspos, ind, hom+1)) {
                     throw new Exception(iname+" found but "+
                             ind.getIndivName()+HOMOLOG_SEPARATOR+(hom+1)+
                             " expected");

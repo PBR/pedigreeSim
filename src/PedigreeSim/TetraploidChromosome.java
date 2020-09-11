@@ -30,7 +30,7 @@ public class TetraploidChromosome extends Chromosome {
      * probability of preferential pairing vs random pairing of the
      * telomeres
      */
-    private double prefPairingProb;
+    private final double prefPairingProb;
     
     /**
      * fracQuadrivalents:
@@ -39,12 +39,12 @@ public class TetraploidChromosome extends Chromosome {
      * Only used if popdata.naturalPairing==false (but it must be specified
      * even if it is not used)
      */
-    private double fracQuadrivalents; 
+    private final double fracQuadrivalents; 
 
     //Arrays for use in test mode:
     //arrays for storing the cumulative counts of homozygosity for founder alleles at each marker, 
     //index=markers
-    int[] founderHomAll; //over all gametes
+    //int[] founderHomAll; //over all gametes
     int[] founderHomSel; //for one random gamete per meiosis
     //int[] founderHomCum; //founderHomSel cumulated over all iterations
     double[] founderHomFrCum; //freq of homozygozity cumulated over all ietration

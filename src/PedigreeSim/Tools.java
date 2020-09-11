@@ -229,6 +229,7 @@ public class Tools {
     
     /**
      * ranExp gets a random number from the standard exponential distribution
+     * @param mean The mean of the distribution
      * @return
      */
     public double ranExp(double mean) {
@@ -337,7 +338,7 @@ public class Tools {
      * NOTE that this will not lead to a correspondence with the Haldane or
      * Kosambi mapping functions; in particular the total map length of
      * the chromosome in a bivalent will always be infinite
-     * @param chromlength
+     * @param chromLength The length of the chromosome in cM
      * @return
      */
     public static double calcChiasmaDist(double chromLength) {

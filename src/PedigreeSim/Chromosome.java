@@ -29,15 +29,22 @@ public class Chromosome {
     
     //Arrays for use in test mode:
     //arrays for storing the cumulative counts of each founder allele:
-    //1st index=popdata.ploidy=#founder alleles, 2nd index=#markers on chrom
-    int[][] founderAlleleCountAll; //over all gametes
+    //1st index=#founder alleles, 2nd index=#markers on chrom
+    //int[][] founderAlleleCountAll; //over all gametes
     int[][] founderAlleleCountSel; //one random gamete per meiosis
+    int[][] founderAlleleCountCum; //over all iterations
+    //arrays for storing the cumulative counts of each dosage of a founder allele:
+    //1st index=#founder alleles, 2nd index=#markers on chrom,
+    //3rd index=dosage in gamete:0,1, up to 4 (with double reduction and/or 
+    //unreduced gametes)
+    int[][][] founderAlleleDoseSel; //over the selected gametes pre iteration
+    int[][][] founderAlleleDoseCum; //over all iterations
     //array for storing the locus genotypes over all iterations
     //1st index=#locGenotypes, 2nd index=#markers on chromosome
     int[][] locGenotypeCount; //over all iterations
     //arrays for storing the recombination count between any two markers:
     //both indices 0..makercount-1
-    int[][] recombCountAll; //counts recombinations over all gametes, per iteration
+    //int[][] recombCountAll; //counts recombinations over all gametes, per iteration
     int[][] recombCountSel; //counts recombinations of one random gamete per meiosis, per iteration
     //int[][] recombCountCum; //cumulates recombCountSel over all iterations
     double[][] recombFrCum; //cumulates recombination fraction over all iterations
@@ -108,8 +115,7 @@ public class Chromosome {
      * getSidePos returns the head or tail position with side==0 or 1
      * (actually returns tail pos if side==1, else head pos)
      * @param side 0 (head) or 1 (tail)
-     * @return
-     * @throws Exception 
+     * @return 
      */
     public double getSidePos(int side) {
         if (side==1) return getTailPos();
@@ -220,4 +226,50 @@ public class Chromosome {
         out.println();
     } //printMapHorizontal
 
+
+    /**
+     * testPrintAlleleCounts:
+     * prints a table with for each founderallele the relative frequency 
+     * at each locus, over all gametes
+     * (only used in test mode)
+     * @param out
+     * @param allelecounts a 2-dim array of counts
+     * @param totalhs the total number of haplostructs over all gametes
+     */
+    void testPrintAlleleCounts(PrintWriter out, int[][]allelecounts,
+            double totalhs) {
+        out.println();
+        out.println("Founder allele frequencies:");
+        printMapHorizontal(out, true);
+        for (int f=0; f<popdata.founderAlleleCount; f++) {
+            out.print(f);
+            for (int loc=0; loc<getLocus().size(); loc++) {
+                out.print("\t"+(1.0*allelecounts[f][loc]/totalhs));
+            }    
+            out.println();
+        }
+    }
+    
+    /**
+     * testPrintAlleleDosageCounts:
+     * prints a table with for each founderallele a frequency distribution
+     * of the dosage over all gametes, at each locus
+     * (only used in test mode)
+     * @param out
+     * @param alleledosecounts a 3-dim array of counts
+     */
+    void testPrintAlleleDosageCounts(PrintWriter out, int[][][]alleledosecounts) {
+        //counts of the frequencies of nulliplex ... ploidyplex
+        out.println();
+        out.println("Founder allele dosage counts:");
+        printMapHorizontal(out,true);
+        for (int f=0; f<popdata.founderAlleleCount; f++) {
+            for(int d=0; d<5; d++) {
+                out.print(f+"\t"+d);
+                for (int loc=0; loc<getLocus().size(); loc++)
+                    out.print("\t"+alleledosecounts[f][loc][d]);
+                out.println();
+            }    
+        }
+    }
 }

@@ -37,12 +37,12 @@ import java.util.*;
  */
 public class Main {
 
-    /**
-     * @param args the command line arguments
-     */
-
     public static String appName = "PedigreeSim";
 
+    /**
+     * @param args the command line arguments
+     * @throws Exception
+     */
     public static void main(String[] args) throws Exception {
         simulate(args);
         //Tools.recombtable();
@@ -139,6 +139,13 @@ public class Main {
                                 " is false the minimum chromosome length is " +
                                 (minLength*100.0) + " cM");
                 }
+            }
+            if (parMap.containsKey(str2nGametes)) {
+                //cannot be set in the constructor (for safety), 
+                //therefore added after construction of popdata
+              if (parMap.get(str2nGametes).toUpperCase().equals(strFDR)) {
+                  popdata.unreducedGametes = 1; //FDR
+              } else popdata.unreducedGametes = 2; //SDR      
             }
         }    
         catch (Exception ex) {
@@ -354,45 +361,49 @@ public class Main {
 
     } //simulate
 
-    private static char commentChar = ';';
+    private static final char commentChar = ';';
     //Standard keys:
-    private static String strMissing = "MISSING";
-    private static String strRandomseed = "SEED";
-    private static String strPloidy = "PLOIDY";
-    private static String strMapfunction = "MAPFUNCTION";
-    private static String strChromfile = "CHROMFILE";
-    private static String strPedfile = "PEDFILE";
-    private static String strMapfile = "MAPFILE";
-    private static String strFounderfile = "FOUNDERFILE";
-    private static String strHaplostruct = "HAPLOSTRUCT";
-    private static String strOutput = "OUTPUT";
-    private static String strPoptype = "POPTYPE";
-    private static String strPopsize = "POPSIZE";
+    private static final String strMissing = "MISSING";
+    private static final String strRandomseed = "SEED";
+    private static final String strPloidy = "PLOIDY";
+    private static final String strMapfunction = "MAPFUNCTION";
+    private static final String strChromfile = "CHROMFILE";
+    private static final String strPedfile = "PEDFILE";
+    private static final String strMapfile = "MAPFILE";
+    private static final String strFounderfile = "FOUNDERFILE";
+    private static final String strHaplostruct = "HAPLOSTRUCT";
+    private static final String strOutput = "OUTPUT";
+    private static final String strPoptype = "POPTYPE";
+    private static final String strPopsize = "POPSIZE";
     //Advanced keys:
-    private static String strParalMultivalents = "PARALLELMULTIVALENTS";
-    private static String strPairedCentromeres = "PAIREDCENTROMERES";
-    private static String strAllowNoChiasmata = "ALLOWNOCHIASMATA";
-    private static String strNaturalPairing = "NATURALPAIRING";
+    private static final String strParalMultivalents = "PARALLELMULTIVALENTS";
+    private static final String strPairedCentromeres = "PAIREDCENTROMERES";
+    private static final String strAllowNoChiasmata = "ALLOWNOCHIASMATA";
+    private static final String strNaturalPairing = "NATURALPAIRING";
     //Test mode keys:
-    private static String strTest = "TEST";
-    private static String strTestIter = "TESTITER";
-    private static String strBivalentsBidirectional = "BIVALENTSBIDIRECTIONAL";
-    private static String strPrintGametes = "PRINTGAMETES";
-    private static String strPrintEachIter = "PRINTEACHITER";
-    private static String strPrintMapdistances = "PRINTMAPDISTANCES";
-    private static String strPrintPubTables = "PRINTPUBTABLES"; //only in combination with specific chrom and map files   
+    private static final String strTest = "TEST";
+    private static final String strTestIter = "TESTITER";
+    private static final String strBivalentsBidirectional = "BIVALENTSBIDIRECTIONAL";
+    private static final String strPrintGametes = "PRINTGAMETES";
+    private static final String strPrintEachIter = "PRINTEACHITER";
+    private static final String strPrintMapdistances = "PRINTMAPDISTANCES";
+    private static final String strPrintPubTables = "PRINTPUBTABLES"; //only in combination with specific chrom and map files 
+    private static final String str2nGametes = "2NGAMETES";
     // Value strings:
-    private static String strDefaultMissing = "NA";
-    private static String strHaldane = "HALDANE";
-    private static String strKosambi = "KOSAMBI";
-    private static String strF1 = "F1"; //F1 population from 2 heterozygous parents
-    private static String strF2 = "F2"; //F2 population from 2 heterozygous perents
-    private static String strBC = "BC"; //BC population from 2 heterozygous parents
-    private static String strS1 = "S1"; /*progeny from selfing one heterozygous parent
+    private static final String strDefaultMissing = "NA";
+    private static final String strHaldane = "HALDANE";
+    private static final String strKosambi = "KOSAMBI";
+    private static final String strF1 = "F1"; //F1 population from 2 heterozygous parents
+    private static final String strF2 = "F2"; //F2 population from 2 heterozygous perents
+    private static final String strBC = "BC"; //BC population from 2 heterozygous parents
+    private static final String strS1 = "S1"; /*progeny from selfing one heterozygous parent
                                          *(equivalent to F2 from two homozygous parents
                                          * for observed alleles, but not for founder
                                          * alleles)
                                          */
+    private static final String strFDR = "FDR";
+    private static final String strSDR = "SDR";
+            
     
     public static HashMap<String, String> readParameterFile(File parFile)  {
         if (parFile==null) return null;
@@ -457,6 +468,10 @@ public class Main {
                  ( (keyval[0].equals(strRandomseed) ||
                     keyval[0].equals(strPrintGametes) ) &&
                     isInteger(keyval[1]) ) 
+                    ||
+                 ( keyval[0].equals(str2nGametes) &&
+                    (keyval[1].toUpperCase().equals(strFDR) ||
+                     keyval[1].toUpperCase().equals(strSDR)) )
                ) {
                         parMap.put(keyval[0], keyval[1]);
             }
@@ -661,8 +676,7 @@ public class Main {
             return false;
         try {
             int p = Integer.parseInt(s.substring(hspos + 1));
-            if (p != homolog) return false;
-            return true;
+            return p == homolog;
         } catch (Exception ex) {return false;}
     } //testGenotypesfileCaption
 
@@ -944,8 +958,8 @@ public class Main {
                 String matchName;
                 if (actualAlleles) {
                     String[] alleles = loci.get(loc).getUniqueAlleleNames();
-                    for (int a=0; a<alleles.length; a++) {
-                        matchName = alleles[a];
+                    for (String allele : alleles) {
+                        matchName = allele;
                         out.print(loci.get(loc).getLocusName()+"\t"+matchName);  
                         for (int i=0; i<popdata.indivCount(); i++) {
                             int dose = 0;
@@ -1311,20 +1325,6 @@ public class Main {
     public static void simulateHaploStructs(PopulationData popdata, int maxfounderallele)
             throws Exception {
         for (Individual ind: popdata.getIndividual()) {
-            /* this is now changed as we allow to read haplostructs for
-             * some or all individuals
-             *
-            //check is all is well:
-            if ( ind.isFounder() && ind.getAllHaploStruct()==null) {
-                throw new Exception("Founder was created without haplostruct");
-            }
-            if ( !ind.isFounder() && ind.getAllHaploStruct()!=null) {
-                throw new Exception("Non-founder was created with haplostruct");
-            }
-            if (!ind.isFounder()) {
-                ind.setHaploStruct(ind.getParents()[0].mating(ind.getParents()[1]));
-            }
-            */
             if (ind.getAllHaploStruct()==null) {
                 if (ind.isFounder()) {
                     ind.setHaploStruct(Individual.calcFounderHaplostruct(
@@ -1349,18 +1349,22 @@ public class Main {
             cal.getTime();
             fName = fName+"_"+sdf.format(cal.getTime());
             popdata.tools.GAMMAFACTOR = gammaFactor;
+            double stdev, tvalue, tprob;
             PrintWriter out = new PrintWriter(
                     new BufferedWriter(new FileWriter(fName+".dat")));
             out.println("PedigreeSim test output\t"+fName);
             out.println();
             out.println("test settings:");
             String[] settings = popdata.popdataSettings();
-            for (int i = 0; i<settings.length; i++) {
-                out.println(settings[i]);
+            for (String setting : settings) {
+                out.println(setting);
             }
             out.println();
-            int gamploidy = popdata.ploidy/2;
-            String[] locGenotypeNames;
+            
+            int gamploidy = popdata.ploidy;
+            if (popdata.unreducedGametes == 0) 
+                gamploidy = gamploidy/2; // normal haploid gametes
+            String[] locGenotypeNames = null;
             int[][] locGenotype = null;
             if (gamploidy==1) {
                 locGenotypeNames = new String[] {"(0)","(1)"};
@@ -1375,38 +1379,41 @@ public class Main {
                     {3,6,8,9} 
                 };
             }
-            else {
-                //for higher ploidy too many locus genotypes, don't count
-                //but to avoid compiler error:
-                locGenotypeNames = null;
-            }    
+            // for higher ploidy (gamploidy>2) there are too many locus 
+            //genotypes, don't count
             
+            //print chromosome data and initialize the overall statistics
             out.println("chromosome\tlength\tstart\tend\tcentromere\tprefPairing\tfracQuadrivalents");
             for (Chromosome chr : popdata.getChromosome()) {
                 out.print(chr.getChromName()+"\t"+(chr.getLength()*100)+"\t"+
                     (chr.getHeadPos()*100)+"\t"+(chr.getTailPos()*100)+"\t"+(chr.getCentromerePos()*100));
                 int mrkCount = chr.getLocus().size();
-                chr.founderAlleleCountAll = new int[popdata.ploidy][mrkCount];
-                chr.founderAlleleCountSel = new int[popdata.ploidy][mrkCount];
-                if (gamploidy <= 2) chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
-                chr.recombCountAll = new int[mrkCount][mrkCount];
+                    //dosages>1 only possible with double reduction and/or unreduced gametes
+                if (gamploidy <= 2) {
+                    chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
+                }
                 chr.recombCountSel = new int[mrkCount][mrkCount];
-                //chr.recombCountCum = new int[mrkCount][mrkCount];
+                if (popdata.ploidy > 2) { 
+                    ((TetraploidChromosome)chr).founderHomSel = new int[mrkCount]; 
+                }
+                chr.founderAlleleCountCum = new int[popdata.founderAlleleCount][mrkCount];
+                chr.founderAlleleDoseCum = new int[popdata.founderAlleleCount][mrkCount][5]; //dosage 0..4
+                    //dosages>1 only possible with double reduction and/or unreduced gametes
                 chr.mapdistCount = new int[mrkCount][mrkCount];
-                //chr.recombCountCum = new int[mrkCount][mrkCount];
                 chr.recombFrCum = new double[mrkCount][mrkCount];
                 chr.recombFrSqCum = new double[mrkCount][mrkCount];
                 chr.mapdistCum = new double[mrkCount][mrkCount];
                 chr.mapdistSqCum = new double[mrkCount][mrkCount];
                 chr.recombPoints = new int[(int)(chr.getLength()*4)];
                 chr.founderCount = new int[popdata.ploidy];
+                if (gamploidy <= 2) {
+                    chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
+                }
                 if (popdata.ploidy > 2) {
                     TetraploidChromosome chr4 = (TetraploidChromosome)chr;
                     out.print("\t"+chr4.getPrefPairingProb()+"\t"+chr4.getFracQuadrivalents());
-                    chr4.founderHomAll = new int[mrkCount];
-                    chr4.founderHomSel = new int[mrkCount];
-                    chr4.founderHomFrCum = new double[mrkCount];
-                    chr4.founderHomFrSqCum = new double[mrkCount];
+                    chr4.founderHomFrCum = new double[mrkCount]; //TODO: same
+                    chr4.founderHomFrSqCum = new double[mrkCount]; //TODO: same
                     chr4.bivalentCount = 0;
                     chr4.paralQuadrivalentCount = 0;
                     chr4.crossQuadrivalentCount = 0;
@@ -1427,44 +1434,37 @@ public class Main {
                 out.println();
             }
             out.flush();
+            
+            //Loop over iterations:
             long timertime = System.nanoTime();
             for (int iter=0; iter<popdata.testIter; iter++) {
                 System.out.println("Iteration "+iter);
-                //clear the arrays:
                 for (Chromosome chr : popdata.getChromosome()) {
                     int mrkCount = chr.getLocus().size();
-                    for (int loc=0; loc<mrkCount; loc++) {
-                        for (int p=0; p<popdata.ploidy; p++) {
-                            chr.founderAlleleCountAll[p][loc]=0;
-                            chr.founderAlleleCountSel[p][loc]=0;
-                        }
-                        for (int loc2=0; loc2<mrkCount; loc2++) {
-                            chr.recombCountAll[loc][loc2]=0;
-                            chr.recombCountSel[loc][loc2]=0;
-                        }
-                    }
+                    // initialize the per-iteration statistics:
+                    chr.founderAlleleCountSel = new int[popdata.founderAlleleCount][mrkCount];
+                    chr.founderAlleleDoseSel = new int[popdata.founderAlleleCount][mrkCount][5]; //dosage 0..4
+                        //dosages>1 only possible with double reduction and/or unreduced gametes
+                    chr.recombCountSel = new int[mrkCount][mrkCount];
                     if (popdata.ploidy > 2) { 
-                        for (int loc=0; loc<mrkCount; loc++) {
-                            ((TetraploidChromosome)chr).founderHomAll[loc]=0;
-                            ((TetraploidChromosome)chr).founderHomSel[loc]=0;
-                            //((TetraploidChromosome)chr).founderHomSelSq[loc]=0;
-                        }
+                        ((TetraploidChromosome)chr).founderHomSel = new int[mrkCount]; 
                     }
                 }
 
-                //simulation of gametes:
+                //simulation of gametes and collection of statistics:
                 if (popdata.testPrintGametes != 0) {
                     out.println("mei\tgam\tchr\thom\tHaploStruct");
                 }
                 for (int m=0; m<popdata.testMeioseCount; m++) {
                     ArrayList<Gamete> gam = popdata.getIndiv(0).doMeiosis();
                     int selgam = 0; //gamete 0 is a completely random gamete
+                    //int selgam = popdata.tools.rand.nextInt(gam.size()); //alternative
                     if (popdata.testPrintGametes != 0) {
                         //print all gametes or only selected gamete:
                         for (int g=0; g<gam.size(); g++) {
                             if (g==selgam || popdata.testPrintGametes!=1) {
                                 for (int c=0; c<popdata.chromCount(); c++) {
-                                    for (int hom=0; hom<popdata.ploidy/2; hom++) {
+                                    for (int hom=0; hom<gamploidy; hom++) {
                                         out.println(m+"\t"+g+"\t"+c+"\t"+hom+"\t"+
                                         gam.get(g).getHaploStruct(c, hom).toString()); 
                                     }    
@@ -1472,160 +1472,95 @@ public class Main {
                             }    
                         } 
                     }    
-                    for (int g=0; g<4; g++) { //loop over 4 gametes in gam
-                        for (int c=0; c<popdata.chromCount(); c++) {
-                            Chromosome chr = popdata.getChrom(c);
-                            int locCount = chr.getLocus().size();
-                            //count occurrences of locus genotypes in selected gamete:
-                            if (g==selgam) {
-                                HaploStruct hs0 = gam.get(g).getHaploStruct(c, 0);
-                                for (int loc=0; loc<locCount; loc++) {
-                                    double locuspos = chr.getLocus().get(loc).getPosition();
-                                    int founderAll0 = hs0.getFounderAt(locuspos);
-                                    if (gamploidy==1) {
-                                        chr.locGenotypeCount[founderAll0][loc]++; 
-                                    }
-                                    else if (gamploidy==2) {
-                                        HaploStruct hs1 = gam.get(g).getHaploStruct(c, 1);
-                                        int founderAll1 = hs1.getFounderAt(locuspos);
-                                        chr.locGenotypeCount[locGenotype[founderAll0][founderAll1]][loc]++;
-                                    }  
-                                    //with higher ploidy there are too many locus genotypes, don't count
-                                }
+                    int g = selgam; // the selected random gamete
+                    for (int c=0; c<popdata.chromCount(); c++) {
+                        Chromosome chr = popdata.getChrom(c);
+                        int locCount = chr.getLocus().size();
+                        //count occurrences of locus genotypes:
+                        HaploStruct hs0 = gam.get(g).getHaploStruct(c, 0);
+                        for (int loc=0; loc<locCount; loc++) {
+                            double locuspos = chr.getLocus().get(loc).getPosition();
+                            int founderAll0 = hs0.getFounderAt(locuspos);
+                            if (gamploidy==1) {
+                                chr.locGenotypeCount[founderAll0][loc]++; 
                             }
+                            else if (gamploidy==2) {
+                                HaploStruct hs1 = gam.get(g).getHaploStruct(c, 1);
+                                int founderAll1 = hs1.getFounderAt(locuspos);
+                                chr.locGenotypeCount[locGenotype[founderAll0][founderAll1]][loc]++;
+                            }  
+                            //with higher ploidy there are too many locus genotypes, don't count
+                        }
 
-                            //count occurrence of founder alleles and recombinants:
-                            for (int p=0; p<gamploidy; p++) {
-                                HaploStruct hs = gam.get(g).getHaploStruct(c, p);
-                                if (g==selgam) {
-                                    chr.founderCount[hs.founderCount()-1] ++;
-                                    int i = hs.segmentCount()-1;
-                                    if (i>=chr.recombPoints.length) {
-                                        int[] temp = new int[chr.recombPoints.length];
-                                        System.arraycopy(chr.recombPoints, 0, temp, 0, temp.length);
-                                        chr.recombPoints = new int[i+4]; //some extra space
-                                        System.arraycopy(temp, 0, chr.recombPoints, 0, temp.length);
-                                    }
-                                    chr.recombPoints[i] ++;
-                                }    
-                                for (int loc=0; loc<locCount; loc++) {
-                                    double locuspos = chr.getLocus().get(loc).getPosition();
-                                    int locFounderAllele = hs.getFounderAt(locuspos);
-                                    chr.founderAlleleCountAll[locFounderAllele][loc]++;
-                                    if (selgam==g) {
-                                        chr.founderAlleleCountSel[locFounderAllele][loc]++;
-                                    }    
-                                    for (int loc2=0; loc2<loc; loc2++) {
-                                        int loc2FounderAllele =
-                                            hs.getFounderAt(chr.getLocus().get(loc2).getPosition());
-                                        if (loc2FounderAllele != locFounderAllele) {
-                                            chr.recombCountAll[loc][loc2]++;
-                                            if (selgam==g) {
-                                                chr.recombCountSel[loc][loc2]++;
-                                            }
-                                        }
-                                    }
-                                }
-                            } //for p
-
-                            //count occurrences of homozygosity:
-                            if (gamploidy >= 2) {
-                                boolean[] homoz = gam.get(g).homozygous(c,true);
-                                for (int loc=0; loc<locCount; loc++) {
-                                    ((TetraploidChromosome)(chr)).founderHomAll[loc]
-                                            += homoz[loc] ? 1 : 0;
-                                    if (selgam==g) {
-                                        ((TetraploidChromosome)(chr)).founderHomSel[loc]
-                                            += homoz[loc] ? 1 : 0;
+                        //count occurrence of founder alleles and recombinants per haplostruct:
+                        for (int p=0; p<gamploidy; p++) {
+                            HaploStruct hs = gam.get(g).getHaploStruct(c, p);
+                            chr.founderCount[hs.founderCount()-1] ++;
+                            int i = hs.segmentCount()-1;
+                            if (i>=chr.recombPoints.length) {
+                                int[] temp = new int[chr.recombPoints.length];
+                                System.arraycopy(chr.recombPoints, 0, temp, 0, temp.length);
+                                chr.recombPoints = new int[i+4]; //some extra space
+                                System.arraycopy(temp, 0, chr.recombPoints, 0, temp.length);
+                            }
+                            chr.recombPoints[i] ++;
+                            for (int loc=0; loc<locCount; loc++) {
+                                double locuspos = chr.getLocus().get(loc).getPosition();
+                                int locFounderAllele = hs.getFounderAt(locuspos);
+                                chr.founderAlleleCountSel[locFounderAllele][loc]++;
+                                for (int loc2=0; loc2<loc; loc2++) {
+                                    int loc2FounderAllele =
+                                        hs.getFounderAt(chr.getLocus().get(loc2).getPosition());
+                                    if (loc2FounderAllele != locFounderAllele) {
+                                        chr.recombCountSel[loc][loc2]++;
                                     }
                                 }
                             }
-                        } // for c
-                    } //for g
+                        } //for p
+
+                        //count occurrences of homozygosity for founderalleles:
+                        if (gamploidy >= 2) {
+                            boolean[] homoz = gam.get(g).homozygous(c,true);
+                            for (int loc=0; loc<locCount; loc++) {
+                                ((TetraploidChromosome)(chr)).founderHomSel[loc]
+                                    += homoz[loc] ? 1 : 0;
+                            }
+                        }
+
+                        //count the dosages of the founder alleles:
+                        int[][] founderdose = gam.get(g).getDosages(c);
+                        for (int loc=0; loc<locCount; loc++) {
+                            for (int f=0; f<popdata.founderAlleleCount; f++) {
+                                chr.founderAlleleDoseSel[f][loc][founderdose[loc][f]] +=1;
+                            } 
+                        }
+                    } // for c
                 } // for m
 
                 //output of cumulative results for current iteration:
                 if (popdata.testPrintEachIter) {
-                    if (popdata.testIter>1) {
-                        out.println();
-                        out.println("Iteration "+iter);
-                    }
                     out.println();
-                    out.println("Cumulative results for ALL gametes per meiosis:");
-                    double total = 4 * gamploidy * popdata.testMeioseCount;
-
-                    for (Chromosome chr: popdata.getChromosome()) {
-                        out.println();
-                        out.println("Chromosome "+chr.getChromName());
-                        
-                        out.println();
-                        out.println("Founder allele frequencies:");
-                        chr.printMapHorizontal(out,true);
-                        for (int p=0; p<popdata.ploidy; p++) {
-                            out.print(p);
-                            for (int loc=0; loc<chr.getLocus().size(); loc++)
-                                out.print("\t"+(chr.founderAlleleCountAll[p][loc]/total));
-                            out.println();
-                        }
-
-                        out.println();
-                        out.println("Recombination frequencies:");
-                        for (int loc=0; loc<chr.getLocus().size(); loc++) {
-                            out.print(chr.getLocus().get(loc).getLocusName());
-                            for (int loc2=0; loc2<loc; loc2++)
-                                out.print("\t"+(chr.recombCountAll[loc][loc2]/total));
-                            out.println();
-                        }
-                        chr.printMapHorizontal(out, false);
-                        
-                        if (popdata.testPrintMapdistances) {    
-                            out.println();
-                            out.println("Inferred map distances:");
-                            for (int loc=0; loc<chr.getLocus().size(); loc++) {
-                                out.print(chr.getLocus().get(loc).getLocusName());
-                                for (int loc2=0; loc2<loc; loc2++)
-                                    out.print("\t"+(Tools.recombToMapdist(chr.recombCountAll[loc][loc2]/total,
-                                            popdata.chiasmaInterference)));
-                                out.println();
-                            }
-                            chr.printMapHorizontal(out, false);
-                        }
-                        
-                        if (popdata.ploidy > 2) {
-                            total = 4 * popdata.testMeioseCount;
-                            out.println();
-                            out.println("Homozygosity frequencies for founder alleles:");
-                            chr.printMapHorizontal(out, true);
-                            out.print("freq");
-                            for (int loc=0; loc<chr.getLocus().size(); loc++)
-                                out.print("\t"+((double)(((TetraploidChromosome)(chr)).founderHomAll[loc])/total));
-                            out.println();
-                        }
-                    } //for chr
-
+                    out.println("Iteration "+iter);
                     out.println();
                     out.println("Cumulative results for ONE RANDOM gamete per meiosis:");
-                    total = gamploidy * popdata.testMeioseCount;
+                    int totalhs = gamploidy * popdata.testMeioseCount;
 
                     for (Chromosome chr: popdata.getChromosome()) {
                         out.println();
-                        out.println("Chromosome "+chr.getChromName());
-                        out.println();
-                        out.println("Founder allele frequencies:");
-                        chr.printMapHorizontal(out, true);
-                        for (int p=0; p<popdata.ploidy; p++) {
-                            out.print(p);
-                            for (int loc=0; loc<chr.getLocus().size(); loc++)
-                                out.print("\t"+(chr.founderAlleleCountSel[p][loc]/total));
-                            out.println();
-                        }
-                        
+                        out.println("Chromosome "+ chr.getChromName());
+
+                        chr.testPrintAlleleCounts(out, chr.founderAlleleCountSel, 
+                                totalhs);
+
+                        chr.testPrintAlleleDosageCounts(out, 
+                                chr.founderAlleleDoseSel);
+
                         out.println();
                         out.println("Recombination frequencies:");
                         for (int loc=0; loc<chr.getLocus().size(); loc++) {
                             out.print(chr.getLocus().get(loc).getLocusName());
                             for (int loc2=0; loc2<loc; loc2++)
-                                out.print("\t"+(chr.recombCountSel[loc][loc2]/total));
+                                out.print("\t"+(1.0*chr.recombCountSel[loc][loc2]/totalhs));
                             out.println();
                         }
                         chr.printMapHorizontal(out, false);
@@ -1637,7 +1572,7 @@ public class Main {
                             for (int loc=0; loc<chr.getLocus().size(); loc++) {
                                 out.print(chr.getLocus().get(loc).getLocusName());
                                 for (int loc2=0; loc2<loc; loc2++) {
-                                    recomb = chr.recombCountSel[loc][loc2]/total;
+                                    recomb = 1.0*chr.recombCountSel[loc][loc2]/totalhs;
                                     dist = Tools.recombToMapdist(recomb,popdata.chiasmaInterference);
                                     out.print("\t"+dist);
                                 }
@@ -1646,27 +1581,27 @@ public class Main {
                             chr.printMapHorizontal(out, false);
                         }
 
-                        if (popdata.ploidy==4) {
-                            total = popdata.testMeioseCount;
+                        if (popdata.ploidy>2) {
+                            int total = popdata.testMeioseCount;
                             out.println();
                             out.println("Homozygosity frequencies for founder alleles:");
                             chr.printMapHorizontal(out, true);
                             out.print("freq");
                             for (int loc=0; loc<chr.getLocus().size(); loc++)
-                                out.print("\t"+((double)(((TetraploidChromosome)(chr)).founderHomSel[loc])/total));
+                                out.print("\t"+(1.0*((TetraploidChromosome)(chr)).founderHomSel[loc])/total);
                             out.println();
                         }
                     } //for chr
-                } //only output per iter if popdata.testIter<=maxOut
+                } //output per iter
 
                 //add the results for this iter (for the one selected gamete per meiosis) to the totals:
-                double total = gamploidy * popdata.testMeioseCount;
+                double totalhs = gamploidy * popdata.testMeioseCount;
                 for (Chromosome chr: popdata.getChromosome()) {
                     //add the recomb and map distance results for this iter to the totals
                     double recomb, dist;
                     for (int loc=0; loc<chr.getLocus().size(); loc++) {
                         for (int loc2=0; loc2<loc; loc2++) {
-                            recomb = chr.recombCountSel[loc][loc2]/total;
+                            recomb = 1.0*chr.recombCountSel[loc][loc2]/totalhs;
                             chr.recombFrCum[loc][loc2] += recomb;
                             chr.recombFrSqCum[loc][loc2] += recomb*recomb;
                             dist = Tools.recombToMapdist(recomb,popdata.chiasmaInterference); //not correct for quadrivalents!
@@ -1678,15 +1613,26 @@ public class Main {
                         }
                     }
                     //add the homozygosity frequency for this iter to the totals
-                    if (popdata.ploidy==4) {
+                    if (popdata.ploidy>2) {
                         for (int i=0; i<((TetraploidChromosome)(chr)).founderHomSel.length; i++) {
                             double homozFreq =
-                                ((double)((TetraploidChromosome)(chr)).founderHomSel[i])
+                                1.0*((TetraploidChromosome)(chr)).founderHomSel[i]
                                     / popdata.testMeioseCount;
                             ((TetraploidChromosome)(chr)).founderHomFrCum[i] +=
                                       homozFreq;
                             ((TetraploidChromosome)(chr)).founderHomFrSqCum[i] +=
                                       homozFreq*homozFreq;
+                        }
+                    }
+                    //add the founder allele counts and dosages for this iter to the totals
+                    for (int f=0; f<popdata.founderAlleleCount; f++) {
+                        for (int loc=0; loc<chr.getLocus().size(); loc++) {
+                            chr.founderAlleleCountCum[f][loc] +=
+                                    chr.founderAlleleCountSel[f][loc];
+                            for (int d=0; d<5; d++) {
+                                chr.founderAlleleDoseCum[f][loc][d] +=
+                                        chr.founderAlleleDoseSel[f][loc][d];
+                            }
                         }
                     }
                 } //for chr
@@ -1695,8 +1641,10 @@ public class Main {
 
             //output accumulated recombination statistics over all iterations:
             int recombfunction=0; //calculated per chromosome; for publication tables we assume
-                      //that all chromosomes have the same recombfunction
-            TDistribution tDistribution = new TDistribution(popdata.testIter-1);
+            TDistribution tDistribution = null;
+            if (popdata.testIter>1) {
+                tDistribution = new TDistribution(popdata.testIter-1);
+            }
             out.println();
             out.println("Accumulated statistics over all "+popdata.testIter+" iterations:");
             for (Chromosome chr: popdata.getChromosome()) {
@@ -1720,12 +1668,18 @@ public class Main {
                 out.println("Frequency distribution of the number of different founder alleles");
                 out.println("alleles\tfrequency");
                 sum=0; count=0;
-                for (int i=0; i<popdata.ploidy; i++) {
+                for (int i=0; i<popdata.founderAlleleCount; i++) {
                     out.println((i+1)+"\t"+chr.founderCount[i]);
                     count += chr.founderCount[i];
                     sum += (i+1)*chr.founderCount[i];
                 }
                 out.println("count & mean\t"+count+"\t"+(((double)sum)/count));
+                
+                double totalhs = popdata.testIter * gamploidy * popdata.testMeioseCount; 
+                chr.testPrintAlleleCounts(out, chr.founderAlleleCountCum, 
+                        totalhs);
+                chr.testPrintAlleleDosageCounts(out, 
+                        chr.founderAlleleDoseCum);
                 
                 if (gamploidy <= 2) {
                     //else too many locus genotypes, not counted
@@ -1782,6 +1736,8 @@ public class Main {
                         mainconfig = 2; //2: cross-type quadrivalents
                         mainconfigCount = chr4.crossQuadrivalentCount;
                     } 
+                    
+                    out.println();
                     out.println("Data on the chromosome exchange interval of cross-type quadrivalents:");
                     out.println("Number of cross-type quadrivalents where the chromosome exchange interval is:");
                     out.println("not defined (no chiasmata):\t"+
@@ -1790,6 +1746,8 @@ public class Main {
                             chr4.oneExchangeLimCount);
                     out.println("defined on both sides:\t" +
                             chr4.twoExchangeLimCount);
+
+                    out.println();
                     out.println("Distribution of midpoints of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
                     out.println("interval (M)\t\t\tfrequency");
                     for (int i=0; i<chr4.exchangeMidFreq.length; i++) {
@@ -1806,6 +1764,8 @@ public class Main {
                             chr4.exchangeMidSum,
                             chr4.exchangeMidSS,
                             chr4.twoExchangeLimCount));
+                    
+                    out.println();
                     out.println("Distribution of lengths of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
                     out.println("interval\t\t\tfrequency");
                     //Note: with popdata.quadriMethod==2 and no chiasma interference the length is always 0: 
@@ -1911,33 +1871,34 @@ public class Main {
                 }
                 chr.printMapHorizontal(out, false);
 
-                out.println();
-                out.println("Significance of deviations from expected recombination frequencies:");
-                double stdev, tvalue, tprob;
-                for (int loc=0; loc<chr.getLocus().size(); loc++) {
-                    out.print(chr.getLocus().get(loc).getLocusName());
-                    for (int loc2=0; loc2<loc; loc2++) {
-                        double rec = chr.recombFrCum[loc][loc2]/popdata.testIter;
-                        double dist = chr.getLocus().get(loc).getPosition() -
-                                chr.getLocus().get(loc2).getPosition();
-                        double expRec = recombfunction==0 ? 
-                                Tools.mapdistToRecomb(dist,popdata.chiasmaInterference) :
-                                recombfunction==1 ?
-                                Tools.recombBivalentToRecombParallelQuadrivalent(
-                                    Tools.mapdistToRecomb(dist,popdata.chiasmaInterference)) :
-                                Tools.recombBivalentToRecombCrossQuadrivalent(
-                                    Tools.mapdistToRecomb(dist,popdata.chiasmaInterference));
-                        stdev= Tools.sampleStDev(
-                                chr.recombFrCum[loc][loc2],
-                                chr.recombFrSqCum[loc][loc2],
-                                popdata.testIter);
-                        tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
-                        tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
-                        out.print("\t"+tprob);
-                    }
+                if (popdata.testIter>1) {
                     out.println();
+                    out.println("Significance of deviations from expected recombination frequencies:");
+                    for (int loc=0; loc<chr.getLocus().size(); loc++) {
+                        out.print(chr.getLocus().get(loc).getLocusName());
+                        for (int loc2=0; loc2<loc; loc2++) {
+                            double rec = chr.recombFrCum[loc][loc2]/popdata.testIter;
+                            double dist = chr.getLocus().get(loc).getPosition() -
+                                    chr.getLocus().get(loc2).getPosition();
+                            double expRec = recombfunction==0 ? 
+                                    Tools.mapdistToRecomb(dist,popdata.chiasmaInterference) :
+                                    recombfunction==1 ?
+                                    Tools.recombBivalentToRecombParallelQuadrivalent(
+                                        Tools.mapdistToRecomb(dist,popdata.chiasmaInterference)) :
+                                    Tools.recombBivalentToRecombCrossQuadrivalent(
+                                        Tools.mapdistToRecomb(dist,popdata.chiasmaInterference));
+                            stdev= Tools.sampleStDev(
+                                    chr.recombFrCum[loc][loc2],
+                                    chr.recombFrSqCum[loc][loc2],
+                                    popdata.testIter);
+                            tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
+                            tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                            out.print("\t"+tprob);
+                        }
+                        out.println();
+                    }
+                    chr.printMapHorizontal(out, false);
                 }
-                chr.printMapHorizontal(out, false);
 
                 if (popdata.testPrintMapdistances) {
                     out.println();
@@ -1992,30 +1953,32 @@ public class Main {
                     }
                     chr.printMapHorizontal(out, false);
 
-                    out.println();
-                    out.println("Significance of deviations from true distances (based on bivalent map function):");
-                    for (int loc=0; loc<chr.getLocus().size(); loc++) {
-                        out.print(chr.getLocus().get(loc).getLocusName());
-                        for (int loc2=0; loc2<loc; loc2++) {
-                            double meandist = chr.mapdistCum[loc][loc2]/chr.mapdistCount[loc][loc2];
-                            stdev= Tools.sampleStDev(
-                                    chr.mapdistCum[loc][loc2],
-                                    chr.mapdistSqCum[loc][loc2],
-                                    chr.mapdistCount[loc][loc2]);
-                            double expDist = chr.getLocus().get(loc).getPosition() -
-                                    chr.getLocus().get(loc2).getPosition();
-                            tvalue = -Math.abs(meandist-expDist)/(stdev/Math.sqrt(chr.mapdistCount[loc][loc2]));
-                            if (chr.mapdistCount[loc][loc2]==popdata.testIter)
-                                tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
-                            else if (chr.mapdistCount[loc][loc2]<2)
-                                tprob = Double.NaN;
-                            else tprob = 1.0 - new TDistribution(chr.mapdistCount[loc][loc2]).cumulative(tvalue);
-                            out.print("\t"+tprob);
-                        }
+                    if (popdata.testIter>1) {
                         out.println();
+                        out.println("Significance of deviations from true distances (based on bivalent map function):");
+                        for (int loc=0; loc<chr.getLocus().size(); loc++) {
+                            out.print(chr.getLocus().get(loc).getLocusName());
+                            for (int loc2=0; loc2<loc; loc2++) {
+                                double meandist = chr.mapdistCum[loc][loc2]/chr.mapdistCount[loc][loc2];
+                                stdev= Tools.sampleStDev(
+                                        chr.mapdistCum[loc][loc2],
+                                        chr.mapdistSqCum[loc][loc2],
+                                        chr.mapdistCount[loc][loc2]);
+                                double expDist = chr.getLocus().get(loc).getPosition() -
+                                        chr.getLocus().get(loc2).getPosition();
+                                tvalue = -Math.abs(meandist-expDist)/(stdev/Math.sqrt(chr.mapdistCount[loc][loc2]));
+                                if (chr.mapdistCount[loc][loc2]==popdata.testIter)
+                                    tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                                else if (chr.mapdistCount[loc][loc2]<2)
+                                    tprob = Double.NaN;
+                                else tprob = 1.0 - new TDistribution(chr.mapdistCount[loc][loc2]).cumulative(tvalue);
+                                out.print("\t"+tprob);
+                            }
+                            out.println();
+                        }
+                        chr.printMapHorizontal(out, false);
                     }
-                    chr.printMapHorizontal(out, false);
-                }
+                }    
 
             } // for chr
             out.flush();
@@ -2082,12 +2045,12 @@ public class Main {
                                     int locA = recloc[c][col][line][0];
                                     int locB = recloc[c][col][line][1];
                                     double rec = ch.recombFrCum[locB][locA]/popdata.testIter;
-                                    double stdev= Tools.sampleStDev(
+                                    stdev = Tools.sampleStDev(
                                             ch.recombFrCum[locB][locA],
                                             ch.recombFrSqCum[locB][locA],
                                             popdata.testIter);
-                                    double tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
-                                    double tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                                    tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
+                                    tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
                                     out.print("\t"+rec+"\t"+tprob);
                                 }
                                 else out.print("\t\t");

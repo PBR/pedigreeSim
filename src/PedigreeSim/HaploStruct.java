@@ -48,7 +48,7 @@ public class HaploStruct implements Cloneable {
     }
 
     @Override
-    public Object clone() {
+    public Object clone() throws CloneNotSupportedException {
         try {
             HaploStruct copy = (HaploStruct) super.clone();
             copy.chrom = chrom; //is never modified, no cloning needed
@@ -58,8 +58,8 @@ public class HaploStruct implements Cloneable {
             for (int i=0; i<founder.size(); i++) {
                 //conversion to doublevalue and intvalue to force a new
                 //Double or Integer object
-                copy.recombPos.add(recombPos.get(i).doubleValue());
-                copy.founder.add(founder.get(i).intValue());
+                copy.recombPos.add(recombPos.get(i));
+                copy.founder.add(founder.get(i));
             }
             return copy;
         }
@@ -258,8 +258,8 @@ public class HaploStruct implements Cloneable {
             recombine_keepHead(hs, recombPos);
             /* now the chromosome ends are switched and must be switched back:
              */
-            ArrayList<Double> tmprecpos = new ArrayList<Double>();
-            ArrayList<Integer> tmpfounder = new ArrayList<Integer>();
+            ArrayList<Double> tmprecpos; // = new ArrayList<Double>();
+            ArrayList<Integer> tmpfounder; // = new ArrayList<Integer>();
             tmprecpos = this.recombPos;
             tmpfounder = this.founder;
             this.recombPos = hs.recombPos;
@@ -287,8 +287,8 @@ public class HaploStruct implements Cloneable {
          */
         if (recombinationInitialization(hs, recombPos) &&
                 recombPos<chrom.getCentromerePos()) {
-            ArrayList<Double> tmprecpos = new ArrayList<Double>();
-            ArrayList<Integer> tmpfounder = new ArrayList<Integer>();
+            ArrayList<Double> tmprecpos; // = new ArrayList<Double>();
+            ArrayList<Integer> tmpfounder; // = new ArrayList<Integer>();
             tmprecpos = this.recombPos;
             tmpfounder = this.founder;
             this.recombPos = hs.recombPos;
@@ -342,8 +342,7 @@ public class HaploStruct implements Cloneable {
 
     public TreeSet<Integer> founderAlleles() {
         TreeSet<Integer> alleles = new TreeSet<Integer>();
-        for (int seg=0; seg < founder.size(); seg++) {
-            Integer f = founder.get(seg);
+        for (Integer f : founder) {
             alleles.add(f);
         }
         return alleles;
@@ -359,8 +358,8 @@ public class HaploStruct implements Cloneable {
         for (int i=0; i<chrom.getPopdata().founderAlleleCount; i++) {
             present[i] = 0;
         }
-        for (int seg=0; seg < founder.size(); seg++) {
-            present[founder.get(seg)] = 1;
+        for (Integer founder1 : founder) {
+            present[founder1] = 1;
         }
         int sum = 0;
         for (int i=0; i<chrom.getPopdata().founderAlleleCount; i++) {

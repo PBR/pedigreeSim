@@ -151,7 +151,7 @@ public class Individual extends Genotype {
 
     /**
      * calcFounderHaplostruct generates the haplostructs for a new founder
-     * (and in the process assigns <ploidy> new founderalleles)
+     * (and in the process assigns (ploidy) new founderalleles)
      * @param lastfounderallele the last founder allele assigned up to now
      * @param popdata
      * @return
@@ -319,18 +319,56 @@ public class Individual extends Genotype {
         //finally put hs into gametes:
         //now we have the four gametes represented in hs as 4*(ploidy/2) HaploStructs
         //per chromosome; these are now converted into Gametes:
-        for (int g=0; g<4; g++) {
-            gametes.add(new Gamete(hs, Tools.seq(g*popdata.ploidy/2,
-                    (g+1)*popdata.ploidy/2-1), popdata));
-               //each gamete gets ploidy/2 HaploStruct[]
-        }
+        
+        //Modification 20200904 according to Soichiro Nishiyama,
+        //to simulate unreduced (FDR and SDR) gametes, (test mode only!)
+        if (popdata.unreducedGametes == 0) {
+            //normal: 4 haploid gametes
+            for (int g=0; g<4; g++) {
+                gametes.add(new Gamete(hs, Tools.seq(g*p2,
+                        (g+1)*p2-1), popdata));
+                   //each gamete gets ploidy/2 HaploStruct[]
+            }
+        } else if (popdata.unreducedGametes == 1) {
+            //FDR, with normal recombination
+            //2 gametes, each formed by combining one normal gamete from the
+            //"top" with one from the "bottom":
+            int[] bottomix = {2, 3}; //index to bottom gametes
+            if (rand.nextFloat() < 0.5) bottomix = new int[] {3, 2};
+            int[] gam1 = new int[popdata.ploidy];
+            int[] gam2 = new int[popdata.ploidy];
+            for (int h=0; h<p2; h++) {
+                gam1[h] = h; 
+                gam1[p2+h] = bottomix[0]*p2+h;
+                gam2[h] = p2+h; 
+                gam2[p2+h] = bottomix[1]*p2 + h;
+            }
+            popdata.ploidy = popdata.ploidy * 2;
+            gametes.add(new Gamete(hs, gam1, popdata));
+            gametes.add(new Gamete(hs, gam2, popdata));
+            popdata.ploidy = popdata.ploidy / 2;
+        } else if (popdata.unreducedGametes == 2) {
+            //SDR, with normal recombination 
+            //2 gametes, combining the two normal top or bottom gametes
+            int[] gam1 = Tools.seq(0, popdata.ploidy-1);
+            int[] gam2 = Tools.seq(popdata.ploidy, 2*popdata.ploidy-1);
+            popdata.ploidy = popdata.ploidy * 2;
+            gametes.add(new Gamete(hs, gam1, popdata));
+            gametes.add(new Gamete(hs, gam2, popdata));
+            popdata.ploidy = popdata.ploidy / 2;
+        }    
         //for debugging: print the four gametes and chiasma positions
-        if (false) {
+        if (false) { //for debugging output: make true
             int[]recCount = new int[popdata.chromCount()];
+            int gametehomcount = popdata.ploidy/2;
+            if (popdata.unreducedGametes > 0) {
+                //with FDR or SDR the gametes have ploidy homologs
+                gametehomcount = popdata.ploidy;
+            }    
             System.out.println("gam\tchr\thom\tHaploStruct");
             for (int g=0; g<gametes.size(); g++) {
                 for (int c=0; c<popdata.chromCount(); c++) {
-                    for (int hom=0; hom<popdata.ploidy/2; hom++) {
+                    for (int hom=0; hom<gametehomcount; hom++) {
                         System.out.println(g+"\t"+c+"\t"+hom+"\t"+
                         gametes.get(g).getHaploStruct(c, hom).toString());
                         if (gametes.get(g).getHaploStruct(c, hom).isRecombinantHead(popdata.getChrom(c).getTailPos())) {
@@ -340,12 +378,12 @@ public class Individual extends Genotype {
                 }    
             }
             //list all chiasma positions in this meiosis:
-            //using a Genotype composed of all 4 gametes
+            //using a Genotype composed of all 4 (or 2) gametes
             HaploStruct[][] allhs = new HaploStruct[popdata.chromCount()][2*popdata.ploidy];
             for (int c=0; c<popdata.chromCount(); c++) {
                 for (int g=0; g<gametes.size(); g++) {
-                    for (int hom=0; hom<popdata.ploidy/2; hom++) {
-                        allhs[c][popdata.ploidy*g/2+hom] = gametes.get(g).getHaploStruct(c, hom);
+                    for (int hom=0; hom<gametehomcount; hom++) {
+                        allhs[c][gametehomcount*g+hom] = gametes.get(g).getHaploStruct(c, hom);
                     }    
                 }
             }

@@ -11,7 +11,7 @@ package PedigreeSim;
  */
 public class Quadrivalent extends Multivalent {
 
-    private static int[][] arm = new int[][] {
+    private static final int[][] arm = new int[][] {
         {0,1,6,7}, //chromatids with head in arm 0
         {0,1,2,3}, //chromatids with tail in arm 1
         {2,3,4,5}, //chromatids with head in arm 2
@@ -68,15 +68,15 @@ public class Quadrivalent extends Multivalent {
     private HaploStruct[] slots;
     private int side; //0=head: arm 0 and 2, 1=tail: arm 1 and 3
     private int nearestArm; //opposite arm (0..3) with nearest chiasma, -1=none
-    private static int[][] oppoArms = new int[][] {{1,3},{0,2}};
+    private static final int[][] oppoArms = new int[][] {{1,3},{0,2}};
     private double sideFact; //multiplication factor to reverse directions
     private double mindist; //dist to nearest of two opposing chiasmata
     private int chiasmaCount;
     private double pos;       //position of the new chiasma
-    private int[] chromatid = new int[2];   //the two slots involved in the new chiasma
-    private double[] exchangeLim = new double[2]; //start (0) and end (1) limits of the exchange interval
-    private double[] lastpos = new double[4]; //position of last chiasma in each arm
-    private boolean[] armFinished = new boolean[4];
+    private final int[] chromatid = new int[2];   //the two slots involved in the new chiasma
+    private final double[] exchangeLim = new double[2]; //start (0) and end (1) limits of the exchange interval
+    private final double[] lastpos = new double[4]; //position of last chiasma in each arm
+    private final boolean[] armFinished = new boolean[4];
     private boolean crossoverFinished; //true if whole process finished
 
     /**

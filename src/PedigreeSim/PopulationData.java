@@ -146,7 +146,8 @@ public class PopulationData {
     //variables only used in test mode:
     int testIter, //onumber of iterations (of testMeioseCount meioses)
         testMeioseCount, //number of meioses per iteration
-        testPrintGametes; //0=no, 1=only one (first), else all gametes   
+        testPrintGametes, //0=no, 1=only one (first), else all gametes   
+        unreducedGametes; //0=normal haploid, 1=FDR (with recomb), 2=SDR    
     boolean 
         testPrintEachIter, //print cumulative statistics for each iteration
         testPrintMapdistances, //print map distances in addition to recombination freqs
@@ -154,15 +155,30 @@ public class PopulationData {
     
     /**
      * The full constructor
-     * @param ploidy 2 or 4 (will possibly be extended)
+     * @param ploidy any positive even number
      * @param chiasmaInterference false or true for Haldane or Kosambi map
      * function (in Bivalents; in quadrivalents the recombination fractions
      * and distances are larger)
      * @param parallelMultivalents quadrivalents (and higher) not arm-based
      * but all chromosomes parallel (not realistic)
+     * @param pairedCentromeres If 0.0, all centromeres in a quadrivalent
+     * are distributed randomly to the poles. If 1.0, the two centromeres
+     * paired in a quadrivalent branch go to a different pole.
+     * pairedCentromeres is the probability (0.0-1.0) of the second option
+     * @param naturalPairing The formation of a quadrivalent or a set of
+     * bivalents is determined by the pairing at the telomeres. If
+     * naturalPairing is true the frequency of quadrivalents arises 
+     * spontaneously as a consequence of the ploidy and preferential pairing.
+     * If false, the probability of quadrivalents is determined by 
+     * TetraploidChromosome.prefPairingProb.
      * @param allowNoChiasmata if false multivalents in which chromosomes
      * not involved in at least one chiasma ("unpaired chromosomes") are
      * rejected; leads to serious departures from set map distances
+     * @param bivalentsBidirectional if false (the normal situation),
+     * in bivalents the chiasmata are formed sequentially from one end to
+     * the other. If true, they are formed starting from both telomeres,
+     * similar to quadrivalents where they are formed starting from the
+     * ends of the four branches
      * @param randomSeed allows to re-run same simulation
      * @param missing string to represent missing parents in pedigree
      * and non-existing recombination positions in HaploStruct files
@@ -175,8 +191,7 @@ public class PopulationData {
             boolean bivalentsBidirectional,
             long randomSeed, String missing)
             throws Exception {
-        if //(ploidy!=2 && ploidy!=4) {
-           (ploidy <= 0 || ploidy % 2 != 0) {     
+        if (ploidy <= 0 || ploidy % 2 != 0) {     
             throw new Exception("Error in PopulationData: ploidy must be even");
         }
         this.ploidy = ploidy;
@@ -193,6 +208,11 @@ public class PopulationData {
         //set variables for test mode to defaults:
         this.testMode = false;
         this.testPrintGametes = 0;
+        this.unreducedGametes = 0; //default 0=haploid gametes; 
+        /* 1=FDRand 2=SDR only available in test mode, cannot be set in constructor
+         * for safety: in non-test mode could result in individuals
+         * with different ploidy levels
+         */
         this.testPrintEachIter = false;
         this.testPrintMapdistances = true;
         this.testPrintPubTables = false;
@@ -457,6 +477,7 @@ public class PopulationData {
             "allowNoChiasmata=\t"+allowNoChiasmata,
             "naturalPairing=\t"+naturalPairing,
             "bivalentsBidirectional=\t"+bivalentsBidirectional,
+            "unreducedGametes=\t"+unreducedGametes,
             "randomSeed=\t"+randomSeed };
         return result;
     } //popdataSettings

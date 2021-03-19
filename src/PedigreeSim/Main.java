@@ -50,7 +50,7 @@ public class Main {
 
     public static void simulate(String[] args) throws Exception {
         File parFile = getParameterFile(args);
-        if (parFile==null) { return; }
+        if (parFile==null) return;
         System.out.println("Parameter file="+parFile.getName());
         String err = "";
         HashMap<String, String> parMap = readParameterFile(parFile);
@@ -241,6 +241,8 @@ public class Main {
         if (err.isEmpty()) {
 
             if (test) {
+                /*
+                This seems unnneeded: haplostruct file not used in test mode?
                 if (parMap.containsKey(strHaplostruct)) {
                     try {
                         readHaploStructFiles(parMap.get(strHaplostruct),popdata);
@@ -249,7 +251,7 @@ public class Main {
                         return;
                     }
                 }
-                // else
+                */
                 if (!parMap.containsKey(strMapfile)) {
                     err = strMapfile + " not found in parameter file";
                 }
@@ -269,6 +271,7 @@ public class Main {
 
                 //read and/or simulate&write haplostructs:
                 int maxfounderallele = -1;
+                int hapstructRead = 0;
 
                 if (parMap.containsKey(strHaplostruct)) {
                     try {
@@ -291,14 +294,37 @@ public class Main {
                  * In both last cases actual genotypes are generated if
                  * map and founder genotypes available
                  */
-                //simulate new haplostruct for pedigree
-                simulateHaploStructs(popdata, maxfounderallele);
-                writeHaploStructFiles(parMap.get(strOutput),popdata);
-                if (!err.isEmpty()) {
-                    System.out.println(err);
-                    return;
-                }
 
+                // if for all Individuals haplostruct were read from file,
+                // we don't need to simulate any new Individuals and
+                // we don't need to write new hsa/hsb and meioticconfigs files:
+                for (Individual ind: popdata.getIndividual()) {
+                    if (ind.getAllHaploStruct() != null) hapstructRead++;
+                }
+                if (hapstructRead > 0 && hapstructRead < popdata.indivCount()) {
+                    // we have read haplosruct from hsa/hsb files but need to
+                    // simulate more Individuals; try to also read the
+                    // meioticconfig file so tht can be updated too:
+                    readMeioticconfigsFile(parMap.get(strHaplostruct),
+                                                     popdata);
+                }
+                String fName;
+                if (hapstructRead < popdata.indivCount()) {
+                    //simulate new individuals
+                    simulateIndividuals(popdata, maxfounderallele);
+                    // write the new haplostruct and meioticcinfig files:
+                    fName = parMap.get(strOutput);
+                    System.out.println("write file "+fName+".hsa");
+                    System.out.println("write file "+fName+".hsb");
+                    writeHaploStructFiles(fName,popdata);
+                    fName = parMap.get(strOutput)+"_meioticconfigs.dat";
+                    System.out.println("write file "+fName);
+                    writeMeioticConfigsFile(fName, popdata);
+                    if (!err.isEmpty()) {
+                        System.out.println(err);
+                        return;
+                    }
+                }
                 //do we have to produce genotypes?
                 if (parMap.containsKey(strMapfile)) {
                     //produce and output genotypes
@@ -323,20 +349,28 @@ public class Main {
                             int whichAllele;
                             if (founderGenotypes) {
                                 //actual alleles present, write file with actual allele genotypes:
-                                writeGenotypesFile(parMap.get(strOutput)+"_genotypes.dat",false,popdata);
+                                fName = parMap.get(strOutput)+"_genotypes.dat";
+                                System.out.println("write file "+fName);
+                                writeGenotypesFile(fName,false,popdata);
                                 whichAllele = MAX_ALLELE;
                             }
                             else whichAllele = 0;
                             //write file with founderallele genotypes:
-                            writeGenotypesFile(parMap.get(strOutput)+"_founderalleles.dat",true,popdata);
+                            fName = parMap.get(strOutput)+"_founderalleles.dat";
+                            System.out.println("write file "+fName);
+                            writeGenotypesFile(fName,true,popdata);
                             //write allele dosage file for either the MAX_ALLELE is actual alleles are present,
                             //and else for founderallele 0:
-                            writeAlleledoseFile(parMap.get(strOutput)+"_alleledose.dat",whichAllele,founderGenotypes,popdata);
+                            fName = parMap.get(strOutput)+"_alleledose.dat";
+                            System.out.println("write file "+fName);
+                            writeAlleledoseFile(fName,whichAllele,founderGenotypes,popdata);
                             //write allAlleledose.dat:
                             //- for all actual alleles only if some or all loci have more than 2 alleles
                             //- or for all founder alleles
                             if (!founderGenotypes || popdata.getMaxAlleleCount()>2) {
-                                writeAllAlleledoseFile(parMap.get(strOutput)+"_allAlleledose.dat",founderGenotypes,popdata);
+                                fName = parMap.get(strOutput)+"_allAlleledose.dat";
+                                System.out.println("write file "+fName);
+                                writeAllAlleledoseFile(fName,founderGenotypes,popdata);
                             }    
                         } catch (Exception ex) {
                             err = "Error writing files: "+ex.getMessage();
@@ -345,9 +379,11 @@ public class Main {
                 }
                 else {
                     //output possible error:
-                    //Haplostruct files given but no Map: nothing to do
+                    //Haplostruct files given but no Map: if also no additional
+                    //individuals have been simulated there is nothing to do
                     if ( parMap.containsKey(strHaplostruct) &&
-                         !parMap.containsKey(strMapfile) ) {
+                         !parMap.containsKey(strMapfile) &&
+                            hapstructRead == popdata.indivCount()) {
                         err = parFile.getName()+": when "+strHaplostruct+" is given also "+
                                 strMapfile+" must be specified";
                     }
@@ -407,13 +443,13 @@ public class Main {
     
     public static HashMap<String, String> readParameterFile(File parFile)  {
         if (parFile==null) return null;
-        HashMap<String, String> parMap = new HashMap<String, String>();
+        HashMap<String, String> parMap = new HashMap<>();
         BufferedReader in;
+        String s;
         try {
             in = new BufferedReader(new FileReader(parFile));
         } catch (Exception ex) { return null; }
         do {
-            String s;
             try {
                 s = in.readLine();
             } catch (Exception ex) { s = null; }
@@ -596,6 +632,7 @@ public class Main {
     } //readMapFile
 
     public static void writePedigreeFile(String fName, PopulationData popdata) throws IOException {
+        System.out.println("write file "+fName);
         PrintWriter out = new PrintWriter(
                 new BufferedWriter(new FileWriter(fName)));
         out.println("Name\tParent1\tParent2");
@@ -623,7 +660,7 @@ public class Main {
      */
     public static ArrayList<String[]> readPedigreeFile(String fName)
              throws IOException {
-        ArrayList<String[]> result = new ArrayList<String[]>();
+        ArrayList<String[]> result = new ArrayList<>();
         result.add(new String[] {""}); //first item is error message
         BufferedReader in;
         try {
@@ -802,9 +839,6 @@ public class Main {
      */
     public static void writeGenotypesFile(String fName, boolean founders, PopulationData popdata)
             throws IOException, Exception {
-        System.out.println("write file "+fName);
-        //File outFile = new File(fName);
-        //PrintWriter out = new PrintWriter(new FileWriter(outFile));
         PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(fName)));
         // write header line:
         out.print("marker");
@@ -872,7 +906,6 @@ public class Main {
     public static void writeAlleledoseFile(String fName, int whichAllele,
             boolean actualAlleles, PopulationData popdata)
             throws IOException, Exception {
-        System.out.println("write file "+fName);
         PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(fName)));
         // write header line:
         out.print("marker");
@@ -941,7 +974,6 @@ public class Main {
     public static void writeAllAlleledoseFile(String fName, 
             boolean actualAlleles, PopulationData popdata)
             throws IOException, Exception {
-        System.out.println("write file "+fName);
         PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(fName)));
         // write header line:
         out.print("marker\tallele");
@@ -1039,6 +1071,34 @@ public class Main {
         hsa.flush();
         hsb.flush();
     } //writeHaploStructFiles
+
+    public static void writeMeioticConfigsFile(String fName, PopulationData popdata)
+            throws IOException {
+        PrintWriter out = new PrintWriter(
+                new BufferedWriter(new FileWriter(fName)));
+
+        for (Individual ind: popdata.getIndividual()) {
+            for (Chromosome chrom: popdata.getChromosome()) {
+                int chrNum = chrom.getChromNumber();
+                out.print(ind.getIndivName()+"\t"+chrom.getChromName());
+                if (ind.parconfig == null) {
+                    for (int i=0; i< 2*(popdata.ploidy+1); i++) {
+                        out.print("\t"+popdata.missing);
+                    }
+                }
+                else {
+                    for (int par=0; par<2; par++) {
+                        out.print("\t"+ind.parconfig[par][chrNum].quad);
+                        for (int p=0; p<popdata.ploidy; p++) {
+                            out.print("\t"+(ind.parconfig[par][chrNum].chromseq[p]+1));
+                        }
+                    }
+                }
+                out.println();
+            }
+        }
+        out.flush();
+    } //writeMeioticConfigFile
 
     public static int readHaploStructFiles(String fName, PopulationData popdata)
             throws Exception {
@@ -1167,6 +1227,68 @@ public class Main {
         return(maxfounderallele);
     } //readHaploStructFiles
 
+    public static void readMeioticconfigsFile(String fName, PopulationData popdata)
+            throws Exception {
+        fName = fName+"_meioticconfigs.dat";
+        //advance information: chromosomes(name, length etc; ploidy; pedigree
+        BufferedReader in;
+        try {
+            in = new BufferedReader(new FileReader(new File(fName)));
+        } catch (Exception ex) {
+            System.out.println("Warning: "+fName+" not found");
+            return;
+        }
+        String s;
+        int line = 0;
+        String iName = "";
+        Individual ind=popdata.getIndiv(0);
+        do {
+            s=in.readLine();
+            if (s!=null) s = s.trim();
+            if (s==null || s.equals("")) break;
+            String[] words = Tools.readWords(s);
+            if (words.length != 2 + 2 *(popdata.ploidy+1)) {
+                throw new Exception(fName+": line "+(line+1)+
+                        " doesn't have the correct number of fields");
+            }
+            if (line %(popdata.chromCount()) == 0) {
+                //first line for next individual
+                ind = popdata.getIndiv(words[0]);
+                if (ind==null) {
+                    throw new Exception(fName+": individual "+words[0]+" doesn't exist");
+                }
+                if (words[2].equals(popdata.missing)) {
+                    ind.parconfig = null;
+                } else {
+                    ind.parconfig = new Genotype.ChromConfig[2][popdata.getChromosome().size()];
+                }
+                iName = words[0];
+            }
+            else if (!words[0].equals(iName)) {
+                throw new Exception(fName+": Insufficient lines for individual "+iName);
+            }
+            int indline = line % popdata.chromCount(); //nth line for this individual
+            Chromosome chrom = popdata.getChrom(indline);
+            if (!words[1].equals(chrom.getChromName())) {
+                throw new Exception(fName+", line "+(line+1)+": chromosome "+
+                        chrom.getChromName()+" expected but "+
+                        words[1]+" found");
+            }
+            if (ind.parconfig != null) {
+                for (int par=0; par<2; par++) {
+                    ind.parconfig[par][indline] = new Genotype.ChromConfig(popdata.ploidy);
+                    ind.parconfig[par][indline].quad =
+                            Integer.valueOf(words[2+par*(popdata.ploidy+1)]);
+                    for (int h=0; h<popdata.ploidy; h++) {
+                        ind.parconfig[par][indline].chromseq[h] =
+                                Integer.valueOf(words[3+par*(popdata.ploidy+1)+h])-1;
+                    }
+                }
+            }
+            line++;
+        } while(true);
+    } //readMeioticconfigFile
+
     public static File getParameterFile(String[] args) {
         String filename;
         if (args.length==0) {
@@ -1286,7 +1408,7 @@ public class Main {
 
     public static ArrayList<String[]> generateStandardPopulation(String popType,
             int popSize, String missing) {
-        ArrayList<String[]> pedList = new ArrayList<String[]>();
+        ArrayList<String[]> pedList = new ArrayList<>();
         int numlength = Integer.toString(popSize).length();
         DecimalFormat format = new DecimalFormat("0000000000".substring(0, numlength));
         if (popType.equals(strF1)) {
@@ -1322,20 +1444,23 @@ public class Main {
         return pedList;
     } //generateStandardPopulation
 
-    public static void simulateHaploStructs(PopulationData popdata, int maxfounderallele)
+    public static void simulateIndividuals(PopulationData popdata, int maxfounderallele)
             throws Exception {
         for (Individual ind: popdata.getIndividual()) {
+            // this works because the pedigree is sorted such that each
+            // Individual appears after both its parents
             if (ind.getAllHaploStruct()==null) {
                 if (ind.isFounder()) {
                     ind.setHaploStruct(Individual.calcFounderHaplostruct(
                             maxfounderallele, popdata));
                     maxfounderallele += popdata.ploidy;
                 } else {
-                    ind.setHaploStruct(ind.getParents()[0].mating(ind.getParents()[1]));
+                    //ind.getParents()[0].mating(ind.getParents()[1], ind);
+                    ind.conception();
                 }
             }
         }
-    } //simulateHaploStructs
+    } //simulateIndividuals
 
     public static void testMeiosis(PopulationData popdata, String fName, double gammaFactor) {
         boolean printPubTables = false; //works only with a specific set of chromosomes and maps,
@@ -1389,7 +1514,8 @@ public class Main {
                     (chr.getHeadPos()*100)+"\t"+(chr.getTailPos()*100)+"\t"+(chr.getCentromerePos()*100));
                 int mrkCount = chr.getLocus().size();
                     //dosages>1 only possible with double reduction and/or unreduced gametes
-                if (gamploidy <= 2) {
+                    if (locGenotypeNames != null) {
+                    //gamploidy <= 2
                     chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
                 }
                 chr.recombCountSel = new int[mrkCount][mrkCount];
@@ -1406,14 +1532,15 @@ public class Main {
                 chr.mapdistSqCum = new double[mrkCount][mrkCount];
                 chr.recombPoints = new int[(int)(chr.getLength()*4)];
                 chr.founderCount = new int[popdata.ploidy];
-                if (gamploidy <= 2) {
+                if (locGenotypeNames != null) {
+                    // gamploidy <= 2
                     chr.locGenotypeCount = new int[locGenotypeNames.length][mrkCount];
                 }
                 if (popdata.ploidy > 2) {
                     TetraploidChromosome chr4 = (TetraploidChromosome)chr;
                     out.print("\t"+chr4.getPrefPairingProb()+"\t"+chr4.getFracQuadrivalents());
-                    chr4.founderHomFrCum = new double[mrkCount]; //TODO: same
-                    chr4.founderHomFrSqCum = new double[mrkCount]; //TODO: same
+                    chr4.founderHomFrCum = new double[mrkCount];
+                    chr4.founderHomFrSqCum = new double[mrkCount];
                     chr4.bivalentCount = 0;
                     chr4.paralQuadrivalentCount = 0;
                     chr4.crossQuadrivalentCount = 0;
@@ -1682,6 +1809,7 @@ public class Main {
                         chr.founderAlleleDoseCum);
                 
                 if (gamploidy <= 2) {
+                    assert(locGenotypeNames != null);
                     //else too many locus genotypes, not counted
                     out.println();
                     out.println("Frequency distribution of locus genotypes");
@@ -1748,7 +1876,7 @@ public class Main {
                             chr4.twoExchangeLimCount);
 
                     out.println();
-                    out.println("Distribution of midpoints of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
+                    out.println("Distribution of midpoints of cross-type quadrivalent exchange intervals (only if recombinations on both sides)");
                     out.println("interval (M)\t\t\tfrequency");
                     for (int i=0; i<chr4.exchangeMidFreq.length; i++) {
                         out.println((chr4.getHeadPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
@@ -1766,7 +1894,7 @@ public class Main {
                             chr4.twoExchangeLimCount));
                     
                     out.println();
-                    out.println("Distribution of lengths of cross-type quadrivalent exchange intervals (only if chiasmata on both sides)");
+                    out.println("Distribution of lengths of cross-type quadrivalent exchange intervals (only if recombinations on both sides)");
                     out.println("interval\t\t\tfrequency");
                     //Note: with popdata.quadriMethod==2 and no chiasma interference the length is always 0: 
                     //the last failed chiasma extends the exchangeLim to the opposing chiasma or chromosome end
@@ -1872,6 +2000,7 @@ public class Main {
                 chr.printMapHorizontal(out, false);
 
                 if (popdata.testIter>1) {
+                    assert(tDistribution != null);
                     out.println();
                     out.println("Significance of deviations from expected recombination frequencies:");
                     for (int loc=0; loc<chr.getLocus().size(); loc++) {
@@ -1954,6 +2083,7 @@ public class Main {
                     chr.printMapHorizontal(out, false);
 
                     if (popdata.testIter>1) {
+                        assert(tDistribution != null);
                         out.println();
                         out.println("Significance of deviations from true distances (based on bivalent map function):");
                         for (int loc=0; loc<chr.getLocus().size(); loc++) {
@@ -2050,7 +2180,9 @@ public class Main {
                                             ch.recombFrSqCum[locB][locA],
                                             popdata.testIter);
                                     tvalue = -Math.abs(rec-expRec)/(stdev/Math.sqrt(popdata.testIter));
-                                    tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                                    if (tDistribution != null)
+                                        tprob = tDistribution.cumulative(tvalue)*2.0; //two-sided test against expectation
+                                    else tprob = Double.NaN;
                                     out.print("\t"+rec+"\t"+tprob);
                                 }
                                 else out.print("\t\t");

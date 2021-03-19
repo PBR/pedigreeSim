@@ -25,16 +25,12 @@ public class Individual extends Genotype {
     private Individual[] parents;
 
     /**
-     * Class ChromConfig describes for one chromosome in one meiosis
-     * - quad: how many Quadrivalents are formed
-     * - chromseq: the order of the homologs: the first 4*quad homologs
-     *   form the quadrivalents, the remainder form bivalents
+     * parconfig stores the meiotic configurations that produced the two
+     * Gametes from which this Individual originated.
+     * The first index is for the parent (0 or 1), the second for the chromosome
      */
-    static class ChromConfig {
-        int quad; //the number of quadrivalents (was boolean)
-        int[] chromseq;
-    }
-    
+    ChromConfig[][] parconfig;
+
     /* The next 3 data structures are created and calculated by calcGenomehs().
      * They will contain information on the genome numbers (see below) at the
      * two ends (heads and tails) of the haplostructs. They will be created
@@ -212,37 +208,56 @@ public class Individual extends Genotype {
 
 
     /**
-     * mating creates a new genotype from the fusion of two Gametes,
+     * mating obtains two Gametes,
      * the first derived from this parent, the second from otherParent;
      * then thisGamete.fertilization(offspringName, otherGamete) is called.
      * In the offspring the haplostruct from thisGamete are added first
      * and those from otherGamete last; the order of the haplostruct are
      * not changed within or between the gametes.
      * @param otherParent
-     * @return
+     * @param zygote the (already initialized) Individual produced by this
+     *     mating; its parents must already be specified
      * @throws Exception
      */
-    public HaploStruct[][] mating(Individual otherParent)
+    public void mating(Individual otherParent, Individual zygote)
             throws Exception {
         if (otherParent==null ||
                 !otherParent.getPopdata().equals(popdata)) {
             throw new Exception("Other parent invalid in mating");
         }
-        Gamete gamete0 = this.doMeiosis().get(0);
-        Gamete gamete1 = otherParent.doMeiosis().get(0);
-        return gamete0.fertilization(gamete1);
+        if (zygote==null ||
+            !zygote.getPopdata().equals(popdata))
+            throw new Exception("zygote is invalid in mating");
+        Individual[] zyparents = zygote.getParents();
+        if (zyparents == null) {
+            zyparents = new Individual[2];
+            zyparents[0] = this;
+            zyparents[1] = otherParent;
+            zygote.setParents(zyparents);
+        }
+        else if (!zygote.parents[0].equals(this) ||
+                 !zygote.parents[1].equals(otherParent))
+            throw new Exception("zygote has invalid parents in mating");
+        zygote.conception();
     }
 
     /**
-     * selfing does the same as mating, with this as otherParent
-     * @param offspringName
-     * @return
+     * conception creates the genotype (haplostruct) of this Individual from
+     * the fusion of the two parental Gametes.
+     * The parents of this Individual must have been specified earlier.
+     * The haplostruct from the Gamete from parent[0] are added first
+     * and those from parent[1] last; the order of the haplostruct are
+     * not changed within or between the gametes.
+     * The configurations of the parental meioses are also stored in
+     * this Individual.
      * @throws Exception
      */
-    public HaploStruct[][] selfing(String offspringName) throws Exception {
-        Gamete gamete0 = this.doMeiosis().get(0);
-        Gamete gamete1 = this.doMeiosis().get(0);
-        return gamete0.fertilization(gamete1);
+    public void conception() throws Exception {
+        if (parents==null || parents[0]==null || parents[1]==null)
+            throw new Exception("parents are null in conception");
+        Gamete par0gamete = parents[0].doMeiosis().get(0);
+        Gamete par1gamete = parents[1].doMeiosis().get(0);
+        par0gamete.fertilization(par1gamete, this);
     }
 
     /**
@@ -264,7 +279,9 @@ public class Individual extends Genotype {
      * @throws Exception
      */
     public ArrayList<Gamete> doMeiosis() throws Exception {
-        ArrayList<Gamete> gametes = new ArrayList<Gamete>();
+        ArrayList<Gamete> gametes = new ArrayList<>();
+        ChromConfig[] allchromconf = new ChromConfig[popdata.chromCount()];
+        //Gamete gam;
         HaploStruct[][] hs = new HaploStruct[popdata.chromCount()][2*popdata.ploidy];
         //hs[c] will contain the 2n haplostructs to go into the 4 alleles
         //in the correct sequence (first n/2 for gamete 0 etc)
@@ -274,6 +291,7 @@ public class Individual extends Genotype {
         int p2 = popdata.ploidy/2;
         for (int c=0; c<popdata.chromCount(); c++) {
             calcChromConfig(c);
+            allchromconf[c] = new ChromConfig(chrconf);
             //first do the quadrivalents:
             origChrom = new HaploStruct[4];
             for (int v=0; v<chrconf.quad; v++) {
@@ -332,7 +350,12 @@ public class Individual extends Genotype {
         } else if (popdata.unreducedGametes == 1) {
             //FDR, with normal recombination
             //2 gametes, each formed by combining one normal gamete from the
-            //"top" with one from the "bottom":
+            //"top" with one from the "bottom"
+            //This is equivalent to re-sampling two 2n gametes from
+            //the 2*ploidy homologues per chromosome after recombination
+            //and chromatid separation,
+            //where each gamete must get one copy of the centromere of each
+            //parental homologue.
             int[] bottomix = {2, 3}; //index to bottom gametes
             if (rand.nextFloat() < 0.5) bottomix = new int[] {3, 2};
             int[] gam1 = new int[popdata.ploidy];
@@ -350,6 +373,7 @@ public class Individual extends Genotype {
         } else if (popdata.unreducedGametes == 2) {
             //SDR, with normal recombination 
             //2 gametes, combining the two normal top or bottom gametes
+            //This effectively undoes the second meiotic division
             int[] gam1 = Tools.seq(0, popdata.ploidy-1);
             int[] gam2 = Tools.seq(popdata.ploidy, 2*popdata.ploidy-1);
             popdata.ploidy = popdata.ploidy * 2;
@@ -357,7 +381,11 @@ public class Individual extends Genotype {
             gametes.add(new Gamete(hs, gam2, popdata));
             popdata.ploidy = popdata.ploidy / 2;
         }    
-        //for debugging: print the four gametes and chiasma positions
+        // finally, store the meiotic conficuration in each of the gametes:
+        for (Gamete gam: gametes) {
+            gam.parconfig = allchromconf;
+        }
+        //for debugging: print the gametes and recombination positions
         if (false) { //for debugging output: make true
             int[]recCount = new int[popdata.chromCount()];
             int gametehomcount = popdata.ploidy/2;
@@ -377,7 +405,7 @@ public class Individual extends Genotype {
                     }
                 }    
             }
-            //list all chiasma positions in this meiosis:
+            //list all recombination positions in this meiosis:
             //using a Genotype composed of all 4 (or 2) gametes
             HaploStruct[][] allhs = new HaploStruct[popdata.chromCount()][2*popdata.ploidy];
             for (int c=0; c<popdata.chromCount(); c++) {
@@ -391,7 +419,7 @@ public class Individual extends Genotype {
             for (int c=0; c<popdata.chromCount(); c++) {
                 double[] recpos = new Genotype(2*popdata.ploidy,allhs,popdata).recPositions(c);
                 System.out.print("chrom\t"+c+"\t freqRec=\t"+((2.0*recCount[c])/gametes.size()/popdata.ploidy)+
-                        "\tchiasmata:\t"+recpos.length);
+                        "\trecomb:\t"+recpos.length);
                 for (int i=0; i<recpos.length; i++) {
                     System.out.print("\t"+fix.format(recpos[i]));
                 }
@@ -533,7 +561,7 @@ public class Individual extends Genotype {
     private int[][] pairedWith = new int[2][]; //for each haplostruct in initorder:
             //with which other haplostruct is it paired (for both sides)
     private int bivalentcount, quadrivalentcount; //number realized so far
-    private ChromConfig chrconf = new ChromConfig(); //for the current chromosome
+    private ChromConfig chrconf = new ChromConfig(popdata.ploidy); //for the current chromosome
     private boolean[] hsdone; //for each haplostruct in initorder: has it
         //already been used in a Bivalent or Quadrivalent?
     ArrayList<ArrayList<Integer>> genohs;
@@ -571,7 +599,7 @@ public class Individual extends Genotype {
      * @return 
      */
     private void calcChromConfig(int c) {
-        chrconf = new ChromConfig();
+        chrconf = new ChromConfig(popdata.ploidy);
         chrconf.chromseq = new int[popdata.ploidy];
         if (popdata.ploidy == 2) {
             chrconf.chromseq = tools.shuffleArray(Tools.seq(2));

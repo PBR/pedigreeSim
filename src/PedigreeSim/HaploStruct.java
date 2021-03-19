@@ -209,7 +209,7 @@ public class HaploStruct implements Cloneable {
         if (recombinationInitialization(hs, recombPos)) {
             //rombination exactly at head or tail is ignored)
 
-            //find the segments of each where the chiasma is located:
+            //find the segments of each where the recombination is located:
             int thisseg = this.findSegment(recombPos);
             int hsseg = hs.findSegment(recombPos);
             //copy all segments starting from thisseg from this to tmp,

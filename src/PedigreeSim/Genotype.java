@@ -17,6 +17,39 @@ import java.util.TreeSet;
  */
 public class Genotype {
 
+     /**
+     * Class ChromConfig describes for one chromosome in one meiosis
+     * - quad: how many Quadrivalents are formed
+     * - chromseq: the order of the homologs:
+     *     from the start, quad groups of 4 homologs form the quadrivalents;
+     *     with cross-type quadrivalents the 1st and 4th, and the 2nd and 3rd
+     *     are paired at the head/north ends while the 1st and 2nd, and
+     *     the 3rd and 4th are paired at the tail/south ends.
+     *     After that the (ploidy-4*quad)/2 pairs form the bivalents.
+     * Used by the classes Individual and Gamete:
+     *   Individual: to get the meiotic configurations in doMeiosis,
+     *               to transmit this to the Gametes formed,
+     *               and to store the configurations of the two meioses
+     *               from which it originated
+     *   Gamete: to store the configurations of the meiosis
+     *               from which it originated, and
+     *               to transmit that to the new Individual in fertilisation
+     */
+    static class ChromConfig {
+        int quad; //the number of quadrivalents
+        int[] chromseq;
+
+        protected ChromConfig(int ploidy) {
+            chromseq = new int[ploidy];
+        }
+
+        protected ChromConfig(ChromConfig chrconf) {
+            quad = chrconf.quad;
+            chromseq = new int[chrconf.chromseq.length];
+            System.arraycopy(chrconf.chromseq, 0, chromseq, 0, chromseq.length);
+        }
+    }
+
     protected PopulationData popdata;
     /**
      * haplostruct has two indices:
@@ -250,7 +283,7 @@ public class Genotype {
      * recPositions lists for a given chromosome all recombination positions
      * over all haplotypes for that chromosome.
      * Identical positions are counted only once.
-     * For gametes this produces all chiasma positions
+     * For gametes this produces all recombination positions
      * 
      * @return ordered array of all different recombination positions
      */

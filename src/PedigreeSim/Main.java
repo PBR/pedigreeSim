@@ -27,6 +27,7 @@ package PedigreeSim;
 
 import JSci.maths.statistics.TDistribution;
 import java.io.*;
+import java.nio.file.Files;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -48,12 +49,36 @@ public class Main {
         //Tools.recombtable();
     } //main
 
-    public static void simulate(String[] args) throws Exception {
+    /**
+     * Check if input file exists and is available for reading
+     * @param descr which file is this (chromfile, pedfile etc;
+     * used for error message
+     * @param filepath the file to check
+     * No return value needed: either exception is thrown or all is well
+     * @return true is file exists and readable, else false (and then a
+     * message is printed to System.out)
+     * @throws Exception 
+     */
+    public static boolean checkInfile(String descr, String filepath) {
+        try {
+            File file = new File(filepath);
+            if (!Files.isReadable(file.toPath()))
+                throw new Exception("not readable");
+        } catch (Exception ex) {
+            System.out.println(descr+" "+filepath+
+                    " not found or not readable");
+            return false;
+        }
+        return true;
+    }
+
+public static void simulate(String[] args) throws Exception {
         File parFile = getParameterFile(args);
         if (parFile==null) return;
         System.out.println("Parameter file="+parFile.getName());
         String err = "";
         HashMap<String, String> parMap = readParameterFile(parFile);
+        if (parMap==null) return;
         boolean test = false;
         int testIter = 1;
         boolean bivalBidir = false;
@@ -110,13 +135,18 @@ public class Main {
         }
         else seed = new Random().nextInt();
         if (!parMap.containsKey(strChromfile)) {
-            err = parFile.getName()+": no valid "+strChromfile + " found";
+            err = parFile.getName()+": no "+strChromfile + " specified";
         }
         if (!parMap.containsKey(strOutput)) {
-            err = parFile.getName()+": no valid "+strOutput + " found";
+            err = parFile.getName()+": no "+strOutput + " specified";
         } else {
-            if (!canCreateFile(parMap.get(strOutput)+".t64")) {
-                err = parFile.getName()+": cannot create "+strOutput + ".*";
+            if (!canCreateFile(parMap.get(strOutput)+".hsa") ||
+                !canCreateFile(parMap.get(strOutput)+".hsb") ||
+                !canCreateFile(parMap.get(strOutput)+"_meioticconfigs.dat")) {
+                //the important, time-consuming output files can't be created
+                //the other potential output files don't take time to 
+                //recalculate, so no need to test in advance 
+                err = parFile.getName()+": cannot create "+parMap.get(strOutput)+".*";
             }
         }
         if (!err.isEmpty()) {
@@ -128,6 +158,7 @@ public class Main {
                 bivalBidir, seed, missing);
         
         try { 
+            if (!checkInfile(strChromfile, parMap.get(strChromfile))) return;
             readChromosomeFile(parMap.get(strChromfile), popdata); 
             if (popdata.chromCount()==0)
                 throw new Exception(strChromfile+": no chromosomes");
@@ -149,7 +180,9 @@ public class Main {
             }
         }    
         catch (Exception ex) {
-            System.out.println(ex.getMessage());
+            System.out.println("Error reading "+strChromfile+" "+
+                    parMap.get(strChromfile)+": "+
+                    ex.getMessage());
             return;
         }
 
@@ -187,9 +220,12 @@ public class Main {
         else {
             if (parMap.containsKey(strPedfile)) {
                 //get individuals from pedigree file
+                if (!checkInfile(strPedfile, parMap.get(strPedfile))) return;
                 ArrayList<String[]> pedListOrig = readPedigreeFile(parMap.get(strPedfile));
                 if (!pedListOrig.get(0)[0].isEmpty()) {
-                    System.out.println(""+pedListOrig.get(0)[0]);
+                    System.out.println("Error reading "+strPedfile+" "+
+                            parMap.get(strPedfile)+
+                            ": "+pedListOrig.get(0)[0]);
                     return;
                 }
                 pedListOrig.remove(0);
@@ -274,12 +310,16 @@ public class Main {
                 int hapstructRead = 0;
 
                 if (parMap.containsKey(strHaplostruct)) {
+                    if (!checkInfile(strHaplostruct+" file", parMap.get(strHaplostruct)+".hsa")
+                        || !checkInfile(strHaplostruct+" file", parMap.get(strHaplostruct)+".hsb"))
+                        return;
                     try {
                         maxfounderallele =
                                 readHaploStructFiles(parMap.get(strHaplostruct),
                                                      popdata);
                     } catch (Exception ex) {
-                        System.out.println(ex.getMessage());
+                        System.out.println("Error reading "+strHaplostruct+
+                                " file "+ex.getMessage());
                         return;
                     }
                 }
@@ -304,7 +344,8 @@ public class Main {
                 if (hapstructRead > 0 && hapstructRead < popdata.indivCount()) {
                     // we have read haplosruct from hsa/hsb files but need to
                     // simulate more Individuals; try to also read the
-                    // meioticconfig file so tht can be updated too:
+                    // meioticconfig file so that it can be updated too:
+                    //No check if readable: if not a warning will be given
                     readMeioticconfigsFile(parMap.get(strHaplostruct),
                                                      popdata);
                 }
@@ -328,19 +369,25 @@ public class Main {
                 //do we have to produce genotypes?
                 if (parMap.containsKey(strMapfile)) {
                     //produce and output genotypes
+                    if (!checkInfile(strMapfile, parMap.get(strMapfile))) return;
                     try {
                         readMapFile(parMap.get(strMapfile),popdata);
                     } catch (Exception ex) {
-                        err = "Error reading "+parMap.get(strMapfile)+": "+ex.getMessage();
+                        err = "Error reading "+strMapfile+" "+
+                                parMap.get(strMapfile)+": "+ex.getMessage();
                     }
                     boolean founderGenotypes = false;
                     if (err.isEmpty()) {
                         if (parMap.containsKey(strFounderfile)) {
+                            if (!checkInfile(strFounderfile, parMap.get(strFounderfile)))
+                                return;
                             try {
                                 readFounderGenotypesFile(parMap.get(strFounderfile),popdata);
                                 founderGenotypes = true;
                             } catch (Exception ex) {
-                                err = "Error reading "+parMap.get(strFounderfile)+": "+ex.getMessage();
+                                err = "Error reading "+strFounderfile+" "+
+                                        parMap.get(strFounderfile)+": "+
+                                        ex.getMessage();
                             }
                         }
                     }
@@ -442,19 +489,28 @@ public class Main {
             
     
     public static HashMap<String, String> readParameterFile(File parFile)  {
-        if (parFile==null) return null;
+        if (parFile==null) return null; // should never happen
         HashMap<String, String> parMap = new HashMap<>();
         BufferedReader in;
         String s;
         try {
             in = new BufferedReader(new FileReader(parFile));
-        } catch (Exception ex) { return null; }
+        } catch (Exception ex) { 
+            System.out.println("Error opening "+parFile.getName()+" for reading");
+            return null; }
         do {
             try {
                 s = in.readLine();
             } catch (Exception ex) { s = null; }
             if (s==null) break;
             String[] keyval = getKeyandValue(s);
+            if (keyval.length != 2 || (keyval[0].isEmpty() ^ keyval[1].isEmpty())) {
+                System.out.println("Invalid line in parameter file:\n"+s);
+                parMap = null;
+                break;
+            }  
+            if (keyval[0].isEmpty() && keyval[1].isEmpty())
+                continue;
             if ( ( keyval[0].equals(strPloidy) &&
                     isValidPloidy(keyval[1]) )
                     ||
@@ -465,15 +521,9 @@ public class Main {
                  ( (keyval[0].equals(strChromfile) ||
                     keyval[0].equals(strPedfile) ||
                     keyval[0].equals(strMapfile) ||
-                    keyval[0].equals(strFounderfile)) &&
-                      new File(keyval[1]).canRead() )
-                     ||
-                 ( keyval[0].equals(strHaplostruct) &&
-                    (new File(keyval[1]+".hsa").canRead() &&
-                     new File(keyval[1]+".hsb").canRead()) )
-                     ||
-                 ( keyval[0].equals(strOutput) &&
-                    !keyval[1].isEmpty() ) //further check needed when (re)writing the files
+                    keyval[0].equals(strFounderfile) ||
+                    keyval[0].equals(strHaplostruct) ||
+                    keyval[0].equals(strOutput)) )
                      ||
                  ( keyval[0].equals(strPoptype) &&
                     (keyval[1].equals(strF1) ||
@@ -498,8 +548,7 @@ public class Main {
                     keyval[0].equals(strPairedCentromeres)) &&
                     isProbability(keyval[1]) )
                      ||   
-                 ( keyval[0].equals(strMissing) &&
-                    !keyval[1].isEmpty() )
+                 ( keyval[0].equals(strMissing) )
                      ||
                  ( (keyval[0].equals(strRandomseed) ||
                     keyval[0].equals(strPrintGametes) ) &&
@@ -509,7 +558,12 @@ public class Main {
                     (keyval[1].toUpperCase().equals(strFDR) ||
                      keyval[1].toUpperCase().equals(strSDR)) )
                ) {
-                        parMap.put(keyval[0], keyval[1]);
+                parMap.put(keyval[0], keyval[1]);
+            } 
+            else {
+                System.out.println("Invalid line in parameter file:\n"+s);
+                parMap = null;
+                break;
             }
         } while(true);
         return parMap;
@@ -521,7 +575,7 @@ public class Main {
         try {
             in = new BufferedReader(new FileReader(new File(fName)));
         } catch(Exception ex) {
-            throw new Exception(fName+": cannot open file");
+            throw new Exception("cannot open file");
         }
         String s;
         //Find headerline:
@@ -534,7 +588,7 @@ public class Main {
         if (words.length<3 || !words[0].toUpperCase().equals("CHROMOSOME") ||
                 !words[1].toUpperCase().equals("LENGTH") ||
                 !words[2].toUpperCase().equals("CENTROMERE")) {
-            throw new Exception(fName+": header line not found");
+            throw new Exception("header line not found");
         }
         //Read data lines:
         int wordsNeeded = popdata.ploidy==2 ? 3 : 5;
@@ -545,12 +599,12 @@ public class Main {
             if (!s.isEmpty() && s.charAt(0) != commentChar) {
                 words = Tools.readWords(s);
                 if (words.length<wordsNeeded) {
-                    throw new Exception(fName+": insufficient data on line '"+s+"'");
+                    throw new Exception("insufficient data on line '"+s+"'");
                 } 
                 int i = wordsNeeded-1;
                 while (i>=0 && !words[i].equals(popdata.missing)) i--;
                 if (i>=0) {
-                    throw new Exception(fName+": missing data are not allowed");
+                    throw new Exception("missing data are not allowed");
                 }
                 String chromName = words[0];
                 double length = Double.parseDouble(words[1])/100.0; //cM to Morgan;
@@ -576,7 +630,7 @@ public class Main {
         try {
             in = new BufferedReader(new FileReader(new File(fName)));
         } catch(Exception ex) {
-            throw new Exception(fName+": cannot open file");
+            throw new Exception("cannot open file");
         }
         String s;
         //Find headerline:
@@ -589,7 +643,7 @@ public class Main {
         if (words.length<3 || !words[0].toUpperCase().equals("MARKER") ||
                 !words[1].toUpperCase().equals("CHROMOSOME") ||
                 !words[2].toUpperCase().equals("POSITION")) {
-            throw new Exception(fName+": header line not found");
+            throw new Exception("header line not found");
         }
         //Read data lines:
         String lastName="";
@@ -603,12 +657,12 @@ public class Main {
             if (!s.isEmpty() && s.charAt(0) != commentChar) {
                 words = Tools.readWords(s);
                 if (words.length<3) {
-                    throw new Exception("Too few items on line '"+s+"'");
+                    throw new Exception("too few items on line '"+s+"'");
                 }
                 int i = 2;
                 while (i>=0 && !words[i].equals(popdata.missing)) i--;
                 if (i>=0) {
-                    throw new Exception(fName+": missing data are not allowed");
+                    throw new Exception("missing data are not allowed");
                 }
                 String mrkName = words[0];
                 String chromName = words[1];
@@ -666,7 +720,7 @@ public class Main {
         try {
             in = new BufferedReader(new FileReader(new File(fName)));
         } catch(Exception ex) {
-            result.get(0)[0] =fName+": cannot open file";
+            result.get(0)[0] = "cannot open file";
             return result;
         }
         String s;
@@ -681,7 +735,7 @@ public class Main {
             !words[0].toUpperCase().equals("NAME") ||
             !words[1].toUpperCase().equals("PARENT1") ||
             !words[2].toUpperCase().equals("PARENT2") ) {
-            result.get(0)[0] = fName+": header line not found";
+            result.get(0)[0] = "header line not found";
             return result;
         }
         //read the first 3 words of each pedigree line
@@ -694,7 +748,7 @@ public class Main {
                 if (words.length<3 ||
                     words[1].charAt(0)==commentChar ||
                     words[2].charAt(0)==commentChar) {
-                    result.get(0)[0] = "Incomplete line in "+fName+": "+s;
+                    result.get(0)[0] = "incomplete line : "+s;
                     return result;
                 }
                 result.add(new String[] {words[0], words[1],words[2]});
@@ -723,7 +777,7 @@ public class Main {
         try {
             in = new BufferedReader(new FileReader(new File(fName)));
         } catch(Exception ex) {
-            throw new Exception(fName+": cannot open file");
+            throw new Exception("cannot open file");
         }
         String s;
         //Find headerline:
@@ -742,7 +796,7 @@ public class Main {
             throw new Exception("must contain one column for the marker name and ploidy columns for each founder");
         }
         if (!words[0].toUpperCase().equals("MARKER")) {
-            throw new Exception("Header doesn't start with 'marker'");
+            throw new Exception("header doesn't start with 'marker'");
         }
         int nf = popdata.founderAlleleCount / popdata.ploidy; //number of founders
         int[] indnr = new int[nf]; //will contain the individual number for each
@@ -822,7 +876,7 @@ public class Main {
             }
         } while(true);
         if (chrom!=null) {
-            throw new Exception(fName+": end of file found while reading chromosome "+
+            throw new Exception("end of file found while reading chromosome "+
                     chrom.getChromName());
         }
     } //readFounderGenotypesFile
@@ -1138,14 +1192,14 @@ public class Main {
                 hs = new HaploStruct[popdata.chromCount()][popdata.ploidy];
             }
             else if (!words[0].equals(iName)) {
-                throw new Exception(fName+".hsa/hsb: Insufficient lines for individual "+iName);
+                throw new Exception(fName+".hsa: insufficient lines for individual "+iName);
             }
             int indline = line % (popdata.chromCount()*popdata.ploidy); //nth line for this individual
             int chrnum = indline / popdata.ploidy;                      //chromosome number
             int homol = indline % popdata.ploidy;                       //homolog number
             Chromosome chrom = popdata.getChrom(chrnum);
             if (!words[1].equals(popdata.getChrom(chrnum).getChromName())) {
-                throw new Exception(fName+".hsa/hsb, line "+(line+1)+": chromosome "+
+                throw new Exception(fName+".hsa, line "+(line+1)+": chromosome "+
                         chrom.getChromName()+" expected but "+
                         words[1]+" found");
             }
@@ -1153,11 +1207,11 @@ public class Main {
                 int homnr;
                 try { homnr = Integer.valueOf(words[2]);
                 } catch (Exception ex) {
-                    throw new Exception(fName+".hsa/hsb, line "+(line+1)+": homolog "+
+                    throw new Exception(fName+".hsa, line "+(line+1)+": homolog "+
                         (homol+1) + " expected, but "+words[2]+" found");
                 }
                 if (homnr != (homol+1)) {
-                    throw new Exception(fName+".hsa/hsb, line "+(line+1)+": homolog "+
+                    throw new Exception(fName+".hsa, line "+(line+1)+": homolog "+
                             (homol+1) + " expected, but "+words[2]+" found");
                 }
             }
@@ -1296,18 +1350,12 @@ public class Main {
         } else {
             filename = args[0];
         }
-        try {
-            File parFile = new File(filename);
-            if (parFile.exists() && parFile.isFile()) {
-                return parFile;
-            }
-            else {
-                System.out.println(appName+": parameter file "+filename+" not found.");
-                return null;
-            }
+        File parFile = new File(filename);
+        if (Files.isReadable(parFile.toPath())) {
+            return parFile;
         }
-        catch (Exception ex) {
-            System.out.println(appName+": parameter file "+filename+" not found.");
+        else {
+            System.out.println(appName+": parameter file "+filename+" not found or not readable.");
             return null;
         }
     } //getParameterFile

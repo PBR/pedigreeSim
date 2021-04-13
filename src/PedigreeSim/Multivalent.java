@@ -32,6 +32,7 @@ abstract public class Multivalent {
      */
     protected HaploStruct[] haplostruct;
         // the 2 or 4 chromosomes involved in a Bivalent or Quadrivalent
+        // (before recombination occurs)
 
     public HaploStruct[] getHaplostruct() {
         return haplostruct;
@@ -146,7 +147,7 @@ abstract public class Multivalent {
             return doBidirectionalCrossingOver();
         }
         //else normal CrossingOver:
-        int slotcount = haplostruct.length * 2;
+        int slotcount = haplostruct.length * 2; // 2 chromatids for each chromosome
         double chiasmaDist = (haplostruct.length==2) ?
             CHIASMADIST : CHIASMADIST * 2 / haplostruct.length;
             //i.e. more (parallel) chromosomes require shorter chiasma distance
@@ -175,7 +176,7 @@ abstract public class Multivalent {
                 slots[ix[1]].addSegment(pos,ix[0]);
                 pos += distToNextChiasma(chiasmaDist);
             } //while pos
-        } while (!(popdata.allowNoChiasmata || allChromChiasmata(slots)));
+        } while (!(popdata.allowNoChiasmata || allChromRecomb(slots)));
         return slots;
     } //doCrossingOver
 
@@ -297,7 +298,7 @@ abstract public class Multivalent {
                     slots[ix[1]].insertSegment(pos[side],ix[0]);
                 }
             }
-        } while (!(popdata.allowNoChiasmata || allChromChiasmata(slots)));
+        } while (!(popdata.allowNoChiasmata || allChromRecomb(slots)));
         return slots;
     } //doBidirectionalCrossingOver
 
@@ -574,13 +575,14 @@ abstract public class Multivalent {
     } //fillGamete
     
     /**
-     * allChromChiasmata:
-     * checks of at least one chromatid of each chromosome is involved in
-     * at least one chiasma
-     * @param slots
+     * allChromRecomb:
+        checks if at least one chromatid of each chromosome is involved in
+        at least one recombination
+     * @param slots each chromatid (a HaploStruct) occupies one slot;
+     * a Bivalent has 4 slots, a Quadrivalent 8 slots
      * @return true if the check is positive
      */
-    boolean allChromChiasmata(HaploStruct[] slots) {
+    boolean allChromRecomb(HaploStruct[] slots) {
         if (slots.length==4) { 
             //bivalent: only check one chrom, if this has recomb then the other has too
             return slots[0].getFounder().size()>1 ||
@@ -588,7 +590,7 @@ abstract public class Multivalent {
         }
         else {
             boolean result;
-            int p = popdata.ploidy-1;
+            int p = slots.length/2 - 1;
             do {
                 result = slots[2*p].getFounder().size()>1 ||
                          slots[2*p+1].getFounder().size()>1;

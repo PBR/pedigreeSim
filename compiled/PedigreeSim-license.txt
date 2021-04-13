@@ -1,0 +1,7 @@
+Licensing: PedigreeSim itself is distributed under the
+GNU General Public License (GPL) version 2 or later
+(http://www.gnu.org). PedigreeSim makes use of the
+jsci-core library of JScience, which is enclosed in the
+file with the compiled version along with a text
+document detailing the conditions under which it may
+be used and distributed.

@@ -1,0 +1,17 @@
+In order to run PedigreeSim from the command prompt,
+make sure that the working directory contains a copy
+of the PedigreeSim.jar file and the lib directory.
+
+At the command prompt, type 
+
+java -jar PedigreeSim.jar
+
+or a variation on this, as discussed in the manual.
+
+This version of PedigreSim is compiled based on 
+the source files of 13 April 2021 (a minor
+modification of version 2.2).
+
+Note that the use and distribution of PedigreeSim
+is subject to the conditions stated in files
+PedigreeSimlicense.txt and JScience-license.txt.

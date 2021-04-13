@@ -15,7 +15,7 @@ or obtain one at http://www.gnu.org
 
 contact:
 address: R.E. Voorrips
-    Wageningen University and Research Centre - Plant Breeding
+    Wageningen University and Research - Plant Breeding
     P.O. Box 16
     6700 AA Wageningen
     The Netherlands
@@ -52,10 +52,5 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 *********************************************************************************    
     
-To run PedigreeSim, unzip the contents of this file to a folder.
-Open a console window, go to the folder where you unzipped Pedigreesim and
-type the following:
-
-java -jar "PedigreeSim.jar" 
-
-For more options see the manual.
+A compiled version of the software is included in folder "compiled".
+See the ReadMe.txt file in that folder for instructions.

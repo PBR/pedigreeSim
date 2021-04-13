@@ -15,7 +15,7 @@ import java.util.Random;
  */
 abstract public class Multivalent {
 
-    public static final double CHIASMADIST = 0.5;
+    public static final double RECOMBDIST = 0.5;
 
     //3 protected fields for faster access, must be set by constructor
     //of descendant classes:
@@ -45,7 +45,7 @@ abstract public class Multivalent {
     /**
      * doMeiosis performs a meiosis. This is a simplified
      * model in that chromatid interference is not modelled.
-     * The chiasmata take place independently of each other, each between a
+     * The recombinations take place independently of each other, each between a
      * random pair of chromatids belonging to different chromosomes.
      * In the first meiotic division half of the centromeres are assigned
      * at random to the first and second pair of gametes, meaning that
@@ -81,7 +81,7 @@ abstract public class Multivalent {
                 getCentromereSortOrder());
     } //doMeiosis
 
-    public double distToFirstChiasma (double meandist) {
+    public double distToFirstRecomb (double meandist) {
         double pos = tools.ranExp(meandist);
         if (popdata.chiasmaInterference) {
             double burninDistance = 10.0*meandist; //to obtain stationary distribution, burn-in 10 times
@@ -94,28 +94,28 @@ abstract public class Multivalent {
             // no interference
             return pos;
         }
-    } //distToFirstChiasma
+    } //distToFirstRecomb
 
-    public double distToNextChiasma (double meandist) {
+    public double distToNextRecomb (double meandist) {
         if (popdata.chiasmaInterference) {
             return tools.ranDistInterference(meandist);
         } else {
             return tools.ranExp(meandist);
         }
-    } //distToNextChiasma
+    } //distToNextRecomb
 
     /**
      * doCrossingOver :
      * assume the (2*ploidy) chromatids to be fixed in parallel "slots",
      * so that slot 0+1 contain the chromosome 0 over their full length,
      * slot 2+3 have chromosome 1 (and so on for polyploids). 
-     * A chiasma produces a recombination between any two non-sister slots;
+     * A recombination occurs between any two non-sister slots;
      * we record its position and the involved slots, but the content of each
      * slot over its full length remains unchanged. In this implementation
-     * intra-chromosomal chiasmata (between sister slots) are always without
+     * intra-chromosomal recombinations (between sister slots) are always without
      * effect and therefore can be ignored (and we don't generate them).
-     * We (mis-)use the HaploStruct class to record the chiasmata for
-     * each slot: each "segment" now has the chiasma position and the
+     * We (mis-)use the HaploStruct class to record the recombinations for
+     * each slot: each "segment" now has the recombination position and the
      * slot it connects to.
      * (NOTE that this is realistic for a bivalent but not for a
      * quadrivalent; in Quadrivalent this method is overridden).
@@ -148,67 +148,69 @@ abstract public class Multivalent {
         }
         //else normal CrossingOver:
         int slotcount = haplostruct.length * 2; // 2 chromatids for each chromosome
-        double chiasmaDist = (haplostruct.length==2) ?
-            CHIASMADIST : CHIASMADIST * 2 / haplostruct.length;
-            //i.e. more (parallel) chromosomes require shorter chiasma distance
-        if (!popdata.allowNoChiasmata) {
-            chiasmaDist = chiasmaDist/0.5 * Tools.calcChiasmaDist(chrom.getLength());
+        double recombDist = (haplostruct.length==2) ?
+            RECOMBDIST : RECOMBDIST * 2 / haplostruct.length;
+            // i.e. more (parallel) chromosomes require shorter 
+            // recombination distance
+        if (!popdata.allowNoRecomb) {
+            recombDist = recombDist/0.5 * Tools.calcRecombDist(chrom.getLength());
         }
         HaploStruct[] slots = new HaploStruct[slotcount];
-        do { //repeat once or (if allowNoChiasmata false) until at least one chiasma)
+        do { //repeat once or (if allowNoRecomb false) until at least one recombination
             for (int s=0; s<slotcount; s++) {
                 slots[s] = new HaploStruct(chrom, -1); //the first segment will be ignored
             }
-            double pos =  //position of first chiasma
-                chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
-            int[] ix = new int[2]; //the two slots for the currect chiasma
+            double pos =  //position of first recombination
+                chrom.getHeadPos() + distToFirstRecomb(recombDist);
+            int[] ix = new int[2]; //the two slots for the currect recombination
             while (pos < chrom.getTailPos()) {
-                //loop: apply crossing-over and get next chiasma
+                //loop: apply crossing-over and get next recombination
                 ix[0] = rand.nextInt(slotcount);
                 do {
                     ix[1] = rand.nextInt(slotcount);
-                } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal chiasmata
+                } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal recombinations
                 /* ix[0] and ix[1] are now the chromatids involved in crossing-over,
-                 * to each we add a "segment" with chiasma position and the slot
+                 * to each we add a "segment" with recombination position and the slot
                  * it connects to:
                  */
                 slots[ix[0]].addSegment(pos,ix[1]);
                 slots[ix[1]].addSegment(pos,ix[0]);
-                pos += distToNextChiasma(chiasmaDist);
+                pos += distToNextRecomb(recombDist);
             } //while pos
-        } while (!(popdata.allowNoChiasmata || allChromRecomb(slots)));
+        } while (!(popdata.allowNoRecomb || allChromRecomb(slots)));
         return slots;
     } //doCrossingOver
 
     /**
      * rejectDist:
-     * in a cross-type Quadrivalent chiasmata are generated from both ends
-     * of each chromosome. A new chiasma generated from one end may not "fit"
+     * in a cross-type Quadrivalent recombinations are generated from both ends
+     * of each chromosome. A new recombination generated from one end may not "fit"
      * as seen from the other end: it may be located beyond that end of the
-     * chromosome, or it may be located beyond the last chiasma generated
+     * chromosome, or it may be located beyond the last recombination generated
      * from that end. If interference occurs it may also be located too close
-     * to the last chiasma from that end.
-     * We use this function rejectDist to tell whether the new chiasma position
+     * to the last recombination from that end.
+     * We use this function rejectDist to tell whether the new recombination position
      * is acceptable, depending on the popdata.chiasmaInterference setting.
      * In order to validate this function we tested it in bivalents, where
-     * we compared the results of generating the chiasmata from one end
-     * with those obtained generating chiasmata from both ends (by setting
+     * we compared the results of generating the recombinations from one end
+     * with those obtained generating recombinations from both ends (by setting
      * popdata.bivalentsBidirectional to true and so invoking
      * Multivalents.doBidirectionalCrossingOver).
      * Experimentation showed that the following procedure gives results
-     * indistinguihable from the unidirectionally generated chiasmata
+     * indistinguihable from the unidirectionally generated recombinations
      * (i.e. both the means and the standard deviations of the obtained
      * recombination frequencies are very close to the unidirectional ones):
-     * - if popdata.chiamaInterference is false, the new chiasma is
+     * - if popdata.chiamaInterference is false, the new recombination is
      *   rejected if it lies beyond the last one generated from the other side.
-     * - if chiasmaInterference is true and the distance from the new chiasma
-     *   to the last chiasma from the opposite side is less than 0.5 Morgan,
+     * - if chiasmaInterference is true and the distance from the new recombination
+     *   to the last recombination from the opposite side is less than 0.5 Morgan,
      *   the probability of rejection increases from 0 at a distance of 0.5 M 
      *   to 1 at 0 M, following a slightly steeper than quadratic function
      *   (power = 2.25).
-     * @param dist the distance remaining between the new chiasma and the last
-     * chiasma generated from the other end; negative if the new chiasma lies
-     * beyond (at the wrong side) of the existing chiasma
+     * @param dist the distance remaining between the new recombination and
+     * the last recombination generated from the other end; negative if the 
+     * new recombination lies beyond (at the wrong side) of the existing 
+     * recombination
      * @return true if rejected
      */
     protected boolean rejectDist(double dist) {
@@ -219,11 +221,11 @@ abstract public class Multivalent {
 
     /**
      * doBidirectionalCrossingOver does the same as doCrossingOver,
-     * but the chiasmata are generated alternating from the head and
+     * but the recombinations are generated alternating from the head and
      * the tail of the chromosome.
      * This is the way they are generated in Quadrivalents (starting from
      * the ends of each arm) because that is the only logical way in that case,
-     * but we run into the decision when a new chiasma can or cannot be
+     * but we run into the decision whether a new recombination can or cannot be
      * added between two existing ones, especially in the case of chiasma
      * interference.
      * This procedure is added to test if in a bivalent both methods lead
@@ -233,72 +235,72 @@ abstract public class Multivalent {
      */
     private HaploStruct[] doBidirectionalCrossingOver() throws Exception {
         int slotcount = haplostruct.length * 2;
-        double chiasmaDist = (haplostruct.length==2) ?
-            CHIASMADIST : CHIASMADIST * 2 / haplostruct.length;
-            //i.e. more (parallel) chromosomes require shorter chiasma distance
-        if (!popdata.allowNoChiasmata) {
-            chiasmaDist = chiasmaDist/0.5 * Tools.calcChiasmaDist(chrom.getLength());
+        double recombDist = (haplostruct.length==2) ?
+            RECOMBDIST : RECOMBDIST * 2 / haplostruct.length;
+            //i.e. more (parallel) chromosomes require shorter recombination distance
+        if (!popdata.allowNoRecomb) {
+            recombDist = recombDist/0.5 * Tools.calcRecombDist(chrom.getLength());
         }
         HaploStruct[] slots = new HaploStruct[slotcount];
-        do { //repeat once or (if allowNoChiasmata false) until at least one chiasma)
+        do { //repeat once or (if allowNoRecomb false) until at least one recombination)
             for (int s=0; s<slotcount; s++) {
                 slots[s] = new HaploStruct(chrom, -1); //the first segment will be ignored
             }
             double[] pos = new double[] {Double.NaN, Double.NaN};
-               //new position of next chiasma from chromosome head and tail
-            int[] ix = new int[2]; //the two slots for the currect chiasma
+               //new position of next recombination from chromosome head and tail
+            int[] ix = new int[2]; //the two slots for the currect recombination
 
-            /* First chiasma, from head or from tail, outside loop
+            /* First recombination, from head or from tail, outside loop
              * because it is tested against the other end, not against another
-             * chiasma, and therefore interference is not an issue
+             * recombination, and therefore interference is not an issue
              */
             int side = rand.nextInt(2); //0=head of chrom, 1 = tail of chrom
-            boolean finished = false; //true when no more chiasmata can be added
+            boolean finished = false; //true when no more recombinations can be added
             if (side==0) {
                 //start from chromosome head
-                pos[0] = chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
+                pos[0] = chrom.getHeadPos() + distToFirstRecomb(recombDist);
                 if (pos[0] >= chrom.getTailPos()) finished=true;
             }
             else { //side=1
                 //start from chromosome tail
-                pos[1] = chrom.getTailPos() - distToFirstChiasma(chiasmaDist);
+                pos[1] = chrom.getTailPos() - distToFirstRecomb(recombDist);
                 if (pos[1] <= chrom.getHeadPos()) finished=true;
             }
             if (!finished) {
-                //add the first chiasma
+                //add the first recombination
                 ix[0] = rand.nextInt(slotcount);
                 do {
                     ix[1] = rand.nextInt(slotcount);
-                } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal chiasmata
+                } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal recombinations
                 slots[ix[0]].addSegment(pos[side],ix[1]);
                 slots[ix[1]].addSegment(pos[side],ix[0]);
             }
 
-            // all further chiasmata are added in a loop:
+            // all further recombinations are added in a loop:
             while (!finished) {
                 side = 1-side;
-                if (Double.isNaN(pos[side])) { //occurs only at the second chiasma
+                if (Double.isNaN(pos[side])) { //occurs only at the second recombination
                     if (side==0) {
-                        pos[0] = chrom.getHeadPos() + distToFirstChiasma(chiasmaDist);
+                        pos[0] = chrom.getHeadPos() + distToFirstRecomb(recombDist);
                     }
                     else {
-                        pos[1] = chrom.getTailPos() - distToFirstChiasma(chiasmaDist);
+                        pos[1] = chrom.getTailPos() - distToFirstRecomb(recombDist);
                     }
                 }
                 else {
-                    pos[side] = pos[side] - (2 * side - 1) * distToNextChiasma(chiasmaDist);
+                    pos[side] = pos[side] - (2 * side - 1) * distToNextRecomb(recombDist);
                 }
                 if (rejectDist((2*side-1)*(pos[side]-pos[1-side]))) finished=true;
                 else {
                     ix[0] = rand.nextInt(slotcount);
                     do {
                         ix[1] = rand.nextInt(slotcount);
-                    } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal chiasmata
+                    } while ( ix[1]/2 == ix[0]/2 ); //no intra-chromosomal recombinations
                     slots[ix[0]].insertSegment(pos[side],ix[1]);
                     slots[ix[1]].insertSegment(pos[side],ix[0]);
                 }
             }
-        } while (!(popdata.allowNoChiasmata || allChromRecomb(slots)));
+        } while (!(popdata.allowNoRecomb || allChromRecomb(slots)));
         return slots;
     } //doBidirectionalCrossingOver
 
@@ -307,7 +309,7 @@ abstract public class Multivalent {
     /**
      * slotsToPatterns :
      * In slots, the founder array contains references to which other
-     * slots each chiasma connects (see doCrossingOver).
+     * slots each recombination connects (see doCrossingOver).
      * As each chromosome consists of two chromatids that are positioned
      * in two slots, in a bivalent these "founders" can range from 0 to 3
      * (4 slots) and in a quadrivalent from 0 to 7 (8 slots).
@@ -598,6 +600,6 @@ abstract public class Multivalent {
             } while (result && p>=0);
             return result;
         }
-    } //allChromChiasmata
+    } //allChromRecomb
     
 }

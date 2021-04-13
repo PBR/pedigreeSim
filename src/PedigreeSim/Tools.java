@@ -184,7 +184,8 @@ public class Tools {
      * @return the recombination fraction
      */
     public static double svedparallelToRecomb(double morgan) {
-        double m = morgan/4; //in a parallel quadrivalent there are 4 chiasmata per morgan
+        double m = morgan/4; 
+        //in a parallel quadrivalent there are 4 recombinations per Morgan
         return 0.75*(1-Math.exp(-2*m/3));
     }
     
@@ -195,7 +196,8 @@ public class Tools {
      */
     public static double recombToSvedparallel(double recomb) {
         double m = -1.5*(Math.log(1-4*recomb/3));
-        return m/4; //in a parallel quadrivalent there are 4 chiasmata per morgan
+        return m/4; 
+        //in a parallel quadrivalent there are 4 crecombinations per Morgan
     }
 
     /**
@@ -223,7 +225,8 @@ public class Tools {
      * @return the recombination fraction
      */
     public static double svedcrosstypeToRecomb(double morgan) {
-        double m = morgan/2; //in a cross-type quadrivalent there are 4 chiasmata per morgan in each arm
+        double m = morgan/2; //in a cross-type quadrivalent there 
+        // are 4 recombinations per Morgan in each arm
         return 0.75 - 0.25*Math.exp(-m) - 0.5/m*(1-Math.exp(-m));
     }
     
@@ -243,20 +246,22 @@ public class Tools {
      * Special cases:
      * k=1: exponential distribution with parameter 1/theta
      * theta=2: chi-square distribution with d.f. = 2*k
-     * For getting the distance from one chiasma to the next with mean distance m,
-     * taking interference into account:
+     * For getting the distance from one recombination to the next 
+     * with mean distance m, taking interference into account:
      * k about 5 to 6 (McPeek&Speed 1995, human data) or
      * k about 2.63 (Kosambi mapping function; own simulations),
      * theta = m/k
-     * For the first chiasma the exponential distribution with mean m should be used
-     * (but in cross-type quadrivalents we start at both ends of each
-     * chromosome; what to do here?) -->
+     * For the first recombination the exponential distribution with mean m 
+     * should be used (but in cross-type quadrivalents we start at both ends 
+     * of each chromosome; what to do here?) -->
      * Reasoning:
-     * a) if no interference, any location beyond opposite chiasma is acceptable
+     * a) if no interference, any location beyond opposite recombination 
+     *    is acceptable
      * b) the cumulative distribution with interference (with GAMMAFACTOR=2.63)
      *    is smaller than the one without interference (the exponential distribution)
      *    for distances under 0.1375 Morgan
-     * c) so only in that region interference (rejection of new chiasma) should occur
+     * c) so only in that region interference (rejection of new recombination)
+     *    should occur
      * d) we let the probability of rejection decrease quadratically from 1 at
      *    distance 0 to 0 at approx 0.1375, with the top of the parabola at
      *    that 0 point (approx x=0.1375)
@@ -317,23 +322,23 @@ public class Tools {
    
     /**
      * ranDistInterference
-     * @param meandist the desired average distance between chiasmata
+     * @param meandist the desired average distance between recombinations
      * @return a random sample from a gamma distribution, to be used as
-     * the distance from one chiasma to the next. This will lead to a
+     * the distance from one recombination to the next. This will lead to a
      * good correspondence with the Kosambi mapping function.
      */public double ranDistInterference(double meandist) {
         return ranGamma(GAMMAFACTOR, meandist/GAMMAFACTOR);
     }
 
     private static double mdiff (double L, double m) {
-        //used by calcChiasmaDist
+        //used by calcRecombDist
         return Math.abs(m - 0.5 / (1-Math.exp(-L/m)));
     }
 
     /**
-     * calcChiasmaDist calculates the necessary average distance of chiasmata
-     * m, such that there are on average 2*L chiasmata on a chromosome with
-     * length L, IF all bivalents without chiasmata are rejected.
+     * calcRecombDist calculates the necessary average distance of recombinations
+     * m, such that there are on average 2*L recombinations on a chromosome with
+     * length L, IF all bivalents without recombinations are rejected.
      * In that case, m == 0.5 / (1-exp(-L/m))
      * NOTE that this will not lead to a correspondence with the Haldane or
      * Kosambi mapping functions; in particular the total map length of
@@ -341,7 +346,7 @@ public class Tools {
      * @param chromLength The length of the chromosome in cM
      * @return
      */
-    public static double calcChiasmaDist(double chromLength) {
+    public static double calcRecombDist(double chromLength) {
          if (chromLength<=0.500) {
              return Double.NaN;
          }
@@ -378,7 +383,7 @@ public class Tools {
              }
          }
          return m2;
-    } //calcChiasmaDist
+    } //calcRecombDist
     
     public static double sampleStDev(double sum, double sumSquares, int nobs) {
         return Math.sqrt((sumSquares-sum*sum/nobs)/(nobs-1));

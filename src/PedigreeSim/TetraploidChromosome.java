@@ -51,31 +51,31 @@ public class TetraploidChromosome extends Chromosome {
     double[] founderHomFrSqCum; //squared frq of homoz cumulated over all iterations
     //variables/arraysfor storing a frequency distribution and sums/sums-of-squares
     //of the chrosomome exchange interval in quadrivalents
-    //(the exchange interval is the interval between the last chiasma in the head arms
-    //and the last chiasma in the tail arms of the quadrivalent):
+    //(the exchange interval is the interval between the last recombination in the 
+    //head arms and the last recombination in the tail arms of the quadrivalent):
     static int freqTableLength = 20;
     int[] quadrivalentConfigCount; //counts meioses with 0, 1, ... quadrivalents
     int crossQuadrivalentCount; //counts all cross quadrivalents
     int paralQuadrivalentCount; //counts all parallele quadrivalents
     int bivalentCount; //counts all bivalents
     int noExchangeLimCount; /*counts arm-based quadrivalents where neither the 
-     *      start nor the end if the exchange interval is defined (no chiasmata)*/
+     *      start nor the end if the exchange interval is defined (no recombinations)*/
     int oneExchangeLimCount;/* counts the arm-based quadrivalents where only the
-     *      start or the end of the exchange interval is defined (chiasmata only
+     *      start or the end of the exchange interval is defined (recombinations only
      *      in the head arms or only in the tail arms*/
     int twoExchangeLimCount;/* counts the arm-based quadrivalents where both the
-     *      start and the end of the exchange interval are defined (chiasmata both
-     *      in the head arms and the tail arms*/
+     *      start and the end of the exchange interval are defined (recombinations
+     *      both in the head arms and the tail arms*/
     int[] exchangeMidFreq; //freq.table of the position of the centre of the exchange interval
     int[] exchangeLengthFreq; //freq.table of the length of the exchange interval
     double exchangeMidSum; //sum of the centre positions of the exchange intervals
     double exchangeMidSS; //sum of squares
     double exchangeLengthSum; //sum of the lengths of the exchange intervals
     double exchangeLengthSS; //sum of squares
-    //variables for storing the sums/sums-of-squares for the number of chiasmata
+    //variables for storing the sums/sums-of-squares for the number of recombinations
     //in quadrivalents:
-    int quadChiasmaSum; //sum
-    int quadChiasmaSS; //sum of squares
+    int quadRecombSum; //sum
+    int quadRecombSS; //sum of squares
 
     public TetraploidChromosome(String chromName, double length, double centromerePos,
             double prefPairingProb, double fracQuadrivalents,

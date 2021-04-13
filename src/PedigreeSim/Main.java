@@ -117,9 +117,14 @@ public static void simulate(String[] args) throws Exception {
         if (parMap.containsKey(strPairedCentromeres)) {
             pairedCentro = Double.parseDouble(parMap.get(strPairedCentromeres));
         }
-        boolean allowNoChiasmata = true;
+        boolean allowNoRecomb = true;
+        // strAllowNoRecomb has replaced strAllowNoChiasmata, 
+        // this is for backward compatibility:
         if (parMap.containsKey(strAllowNoChiasmata)) {
-            allowNoChiasmata = toBoolean(parMap.get(strAllowNoChiasmata));
+            allowNoRecomb = toBoolean(parMap.get(strAllowNoChiasmata));
+        }
+        if (parMap.containsKey(strAllowNoRecomb)) {
+            allowNoRecomb = toBoolean(parMap.get(strAllowNoRecomb));
         }
         boolean naturalPairing = true;
         if (parMap.containsKey(strNaturalPairing)) {
@@ -154,7 +159,7 @@ public static void simulate(String[] args) throws Exception {
             return;
         }
         PopulationData popdata = new PopulationData(ploidy, interf,
-                paralMv, pairedCentro, naturalPairing, allowNoChiasmata,
+                paralMv, pairedCentro, naturalPairing, allowNoRecomb,
                 bivalBidir, seed, missing);
         
         try { 
@@ -162,11 +167,11 @@ public static void simulate(String[] args) throws Exception {
             readChromosomeFile(parMap.get(strChromfile), popdata); 
             if (popdata.chromCount()==0)
                 throw new Exception(strChromfile+": no chromosomes");
-            if (!popdata.allowNoChiasmata) {
-                double minLength = 0.70; //minimum chromosome length if allowNoChiasmata is true
+            if (!popdata.allowNoRecomb) {
+                double minLength = 0.70; //minimum chromosome length if allowNoRecomb is true
                 for (Chromosome chr: popdata.getChromosome()) {
                     if (chr.getLength()<minLength)
-                        throw new Exception("if " + strAllowNoChiasmata +
+                        throw new Exception("if " + strAllowNoRecomb +
                                 " is false the minimum chromosome length is " +
                                 (minLength*100.0) + " cM");
                 }
@@ -461,7 +466,10 @@ public static void simulate(String[] args) throws Exception {
     //Advanced keys:
     private static final String strParalMultivalents = "PARALLELMULTIVALENTS";
     private static final String strPairedCentromeres = "PAIREDCENTROMERES";
+    private static final String strAllowNoRecomb = "ALLOWNORECOMBINATION";
     private static final String strAllowNoChiasmata = "ALLOWNOCHIASMATA";
+    // strAlloNoChiasmata is replaced by strAllowNoRecomb but still
+    // recognized for backward compatibility
     private static final String strNaturalPairing = "NATURALPAIRING";
     //Test mode keys:
     private static final String strTest = "TEST";
@@ -535,7 +543,8 @@ public static void simulate(String[] args) throws Exception {
                     keyval[0].equals(strTestIter))&&
                     isPositiveInteger(keyval[1]))
                      ||
-                 ( (keyval[0].equals(strAllowNoChiasmata) ||
+                 ( (keyval[0].equals(strAllowNoRecomb) ||
+                    keyval[0].equals(strAllowNoChiasmata) ||
                     keyval[0].equals(strNaturalPairing) ||
                     keyval[0].equals(strBivalentsBidirectional) ||
                     keyval[0].equals(strTest) ||
@@ -1601,8 +1610,8 @@ public static void simulate(String[] args) throws Exception {
                     chr4.exchangeMidSS = 0.0;
                     chr4.exchangeLengthSum = 0.0;
                     chr4.exchangeLengthSS = 0.0;
-                    chr4.quadChiasmaSum = 0;
-                    chr4.quadChiasmaSS = 0;
+                    chr4.quadRecombSum = 0;
+                    chr4.quadRecombSS = 0;
                     for (int q=0; q<chr4.quadrivalentConfigCount.length; q++)
                         chr4.quadrivalentConfigCount[q] = 0;
                 }
@@ -1916,7 +1925,7 @@ public static void simulate(String[] args) throws Exception {
                     out.println();
                     out.println("Data on the chromosome exchange interval of cross-type quadrivalents:");
                     out.println("Number of cross-type quadrivalents where the chromosome exchange interval is:");
-                    out.println("not defined (no chiasmata):\t"+
+                    out.println("not defined (no recombinations):\t"+
                             chr4.noExchangeLimCount);
                     out.println("defined on one side only:\t" +
                             chr4.oneExchangeLimCount);
@@ -1944,8 +1953,9 @@ public static void simulate(String[] args) throws Exception {
                     out.println();
                     out.println("Distribution of lengths of cross-type quadrivalent exchange intervals (only if recombinations on both sides)");
                     out.println("interval\t\t\tfrequency");
-                    //Note: with popdata.quadriMethod==2 and no chiasma interference the length is always 0: 
-                    //the last failed chiasma extends the exchangeLim to the opposing chiasma or chromosome end
+                    //Note: with popdata.quadriMethod==2 and no chiasma interference 
+                    //the length is always 0: the last failed recombination extends
+                    //the exchangeLim to the opposing recombination or chromosome end
                     for (int i=0; i<chr4.exchangeLengthFreq.length; i++) {
                         out.println((chr4.getHeadPos()+i*(chr4.getLength()/TetraploidChromosome.freqTableLength)) +
                                 "\t<=X<\t" +

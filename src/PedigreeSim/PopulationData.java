@@ -46,7 +46,7 @@ public class PopulationData {
      * quadrivalent with four arms where at each point 2 chromosomes are paired.
      * This parameter specifies the probability of another multivalent 
      * configuration, where all chromosomes are parallel overt their full length
-     * and each chiasma can occur between any pair of chromosomes;
+     * and each recombination can occur between any pair of chromosomes;
      * probably less realistic than cross-type multivalents
      */
     double parallelMultivalents; //default 0.0
@@ -74,46 +74,46 @@ public class PopulationData {
 
     /**
      * bivalentsBidirectional:
-     * if false, chiasmata in bivalents are generated from the head
+     * if false, recombinations in bivalents are generated from the head
      * to the tail of the chromosome; this is the default situation.
      * if true, they are generated alternating from both ends. This is only
      * an option in the TEST configuration, to check if this approach
      * (which is used for quadrivalents) yields the same distribution
-     * of chiasmata positions.
+     * of recombination positions.
      */
     boolean bivalentsBidirectional; //default: false
 
     /**
-     * allowNoChiasmata:
+     * allowNoRecomb:
      * if false, any multivalent meiosis in which one or more chromosomes
-     * are not involved in at least one chiasma is discarded and performed
+     * are not involved in at least one recombination is discarded and performed
      * again, until all chromosomes are involved.
      * This increases the overall rate of recombination: for bivalents
      * over the whole length of the chromosome the amount of recombination
      * will always be 50% (i.e. the map length becomes infinite).
      * An approach that ensures that the average number of
-     * chiasmata in this case will still be 2*chromosome.length (as when no
+     * recombinations in this case will still be 2*chromosome.length (as when no
      * bivalents are rejected) where no chiasma interference takes place
-     * is to have m = 0.5/(1-exp(-L/m)), where m is the average chiasma distance
-     * and L the chromosome length in Morgan.
+     * is to have m = 0.5/(1-exp(-L/m)), where m is the average recombination
+     * distance and L the chromosome length in Morgan.
      * This is solved numerically
-     * in Tools.calcChiasmaDist. But as remarked above, the effective total
+     * in Tools.calcRecombDist. But as remarked above, the effective total
      * chromosome map length will become infinite, so over longer distances
      * the marker distances will be estimated larger than actual:
      * for L = 1.0 the  % overestimation is as follows:
      * cm    1   2   5   10  20  30  40   50   60   70   80   90
      * %over 2.3 2.4 2.4 2.5 5.0 7.8 11.9 17.0 23.8 32.9 46.8 73.6
      */
-    boolean allowNoChiasmata; //default: true
+    boolean allowNoRecomb; //default: true
 
     /**
      * quadriEachArm:
      * applies only to Quadrivalents
-     * if true, chiasmata are generated in turn from the end of each arm
+     * if true, recombinations are generated in turn from the end of each arm
      * (each cycle we get a random order of the 4 arms and generate the
-     * chiasmata in that order; we repat until no further chiasmata fit)
-     * if false, each new chiasma is generated from a random arm, so several
-     * consecutive chiasmata may be generated in the same arm. This is expected
+     * recombinations in that order; we repeat until no further recombinations fit)
+     * if false, each new recombination is generated from a random arm, so several
+     * consecutive recombinations may be generated in the same arm. This is expected
      * to result in a wider fluctuation of the chromosome exchange point
      * (the center of the quadrivalent cross)
      * false would seem the more natural situation and is the default
@@ -124,16 +124,16 @@ public class PopulationData {
      * quadriMethod:
      * explained in Quadrivalent - doCrossingOver.
      * Briefly:
-     * 1 - crossing-over continues until in all arms a conflicting chiasma
+     * 1 - crossing-over continues until in all arms a conflicting recombination
      *     has been produced; exchange interval is between the innermost
-     *     chiasmata.
-     * 2 - crossing-over continues until in all arms a conflicting chiasma
-     *     has been produced. Difference with 1 is that a failed chiasma
+     *     recombinations.
+     * 2 - crossing-over continues until in all arms a conflicting recombination
+     *     has been produced. Difference with 1 is that a failed recombination
      *     does narrow the remaining exchange interval, so that in the 
-     *     remaining arms the room for valid chiasmata decreases.
-     * 3 - crossing-over stops when the first conflicting chiasma is
+     *     remaining arms the room for valid recombinations decreases.
+     * 3 - crossing-over stops when the first conflicting recombination is
      *     produced. The exchange interval is between the innermost
-     *     chiasmata.
+     *     recombinations.
      */
     int quadriMethod;
     
@@ -171,11 +171,11 @@ public class PopulationData {
      * spontaneously as a consequence of the ploidy and preferential pairing.
      * If false, the probability of quadrivalents is determined by 
      * TetraploidChromosome.prefPairingProb.
-     * @param allowNoChiasmata if false multivalents in which chromosomes
-     * not involved in at least one chiasma ("unpaired chromosomes") are
+     * @param allowNoRecomb if false multivalents in which chromosomes
+     * not involved in at least one recombination ("unpaired chromosomes") are
      * rejected; leads to serious departures from set map distances
      * @param bivalentsBidirectional if false (the normal situation),
-     * in bivalents the chiasmata are formed sequentially from one end to
+     * in bivalents the recombinations are formed sequentially from one end to
      * the other. If true, they are formed starting from both telomeres,
      * similar to quadrivalents where they are formed starting from the
      * ends of the four branches
@@ -187,7 +187,7 @@ public class PopulationData {
     public PopulationData(int ploidy, boolean chiasmaInterference,
             double parallelMultivalents, double pairedCentromeres,
             boolean naturalPairing,
-            boolean allowNoChiasmata,
+            boolean allowNoRecomb,
             boolean bivalentsBidirectional,
             long randomSeed, String missing)
             throws Exception {
@@ -199,7 +199,7 @@ public class PopulationData {
         this.parallelMultivalents = parallelMultivalents;
         this.pairedCentromeres = pairedCentromeres;
         this.bivalentsBidirectional = bivalentsBidirectional;
-        this.allowNoChiasmata = allowNoChiasmata;
+        this.allowNoRecomb = allowNoRecomb;
         this.naturalPairing = naturalPairing;
         this.missing = missing;
         this.randomSeed = randomSeed;
@@ -474,7 +474,7 @@ public class PopulationData {
             "parallelMultivalents=\t"+parallelMultivalents,
             "pairedCentromeres=\t"+pairedCentromeres,
             "quadriMethod=\t"+quadriMethod,
-            "allowNoChiasmata=\t"+allowNoChiasmata,
+            "allowNoRecomb=\t"+allowNoRecomb,
             "naturalPairing=\t"+naturalPairing,
             "bivalentsBidirectional=\t"+bivalentsBidirectional,
             "unreducedGametes=\t"+unreducedGametes,
